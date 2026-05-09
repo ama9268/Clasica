@@ -6,10 +6,11 @@ from django.views.generic import ListView, DetailView, CreateView, View, Templat
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.urls import reverse_lazy
-from apps.editions.models import Edition
+from apps.editions.models import Edition, RouteVariant
 from apps.participations.models import Participation, StravaActivity
 from apps.classifications.models import Classification, get_category
-from .forms import EditionForm
+from apps.editions.utils import parse_gpx_to_geometry_and_elevation
+from .forms import EditionForm, RouteVariantForm
 
 logger = logging.getLogger(__name__)
 
@@ -46,24 +47,79 @@ class EditionCreateView(StaffRequiredMixin, CreateView):
         response = super().form_valid(form)
         edition = self.object
         if edition.route_gpx:
-            self._parse_gpx(edition)
+            geom, distance, ele_profile = parse_gpx_to_geometry_and_elevation(edition.route_gpx)
+            if geom:
+                edition.route_geometry = geom
+                edition.route_distance_km = distance
+                edition.elevation_profile = ele_profile
+                edition.save(update_fields=["route_geometry", "route_distance_km", "elevation_profile"])
         return response
 
-    def _parse_gpx(self, edition: Edition):
-        import gpxpy
-        try:
-            with edition.route_gpx.open("rb") as f:
-                gpx = gpxpy.parse(f)
-            coords = []
-            for track in gpx.tracks:
-                for segment in track.segments:
-                    for point in segment.points:
-                        coords.append([point.longitude, point.latitude])
-            edition.route_geojson = {"type": "LineString", "coordinates": coords}
-            edition.route_distance_km = round(gpx.length_2d() / 1000, 2)
-            edition.save(update_fields=["route_geojson", "route_distance_km"])
-        except Exception:
-            logger.exception("Error parsing GPX for edition %s", edition.pk)
+
+from django.views.generic import UpdateView, DeleteView
+from django.utils import timezone
+
+class EditionUpdateView(StaffRequiredMixin, UpdateView):
+    model = Edition
+    form_class = EditionForm
+    template_name = "dashboard/edition_form.html"
+    success_url = reverse_lazy("dashboard:edition_list")
+
+    def dispatch(self, request, *args, **kwargs):
+        edition = self.get_object()
+        # No permitir editar ediciones que ya han comenzado
+        if edition.has_started:
+            messages.error(request, "No se puede editar una edición que ya ha comenzado.")
+            return redirect("dashboard:edition_list")
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        edition = self.object
+        if edition.route_gpx and 'route_gpx' in form.changed_data:
+            geom, distance, ele_profile = parse_gpx_to_geometry_and_elevation(edition.route_gpx)
+            if geom:
+                edition.route_geometry = geom
+                edition.route_distance_km = distance
+                edition.elevation_profile = ele_profile
+                edition.save(update_fields=["route_geometry", "route_distance_km", "elevation_profile"])
+        return response
+
+
+class EditionDeleteView(StaffRequiredMixin, DeleteView):
+    model = Edition
+    template_name = "dashboard/edition_confirm_delete.html"
+    success_url = reverse_lazy("dashboard:edition_list")
+
+    def dispatch(self, request, *args, **kwargs):
+        edition = self.get_object()
+        if edition.has_started:
+            messages.error(request, "No se puede eliminar una edición que ya ha comenzado.")
+            return redirect("dashboard:edition_list")
+        return super().dispatch(request, *args, **kwargs)
+class RouteVariantListView(StaffRequiredMixin, ListView):
+    model = RouteVariant
+    template_name = "dashboard/variant_list.html"
+    context_object_name = "variants"
+
+
+class RouteVariantCreateView(StaffRequiredMixin, CreateView):
+    model = RouteVariant
+    form_class = RouteVariantForm
+    template_name = "dashboard/variant_form.html"
+    success_url = reverse_lazy("dashboard:variant_list")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        variant = self.object
+        if variant.route_gpx:
+            geom, distance, ele_profile = parse_gpx_to_geometry_and_elevation(variant.route_gpx)
+            if geom:
+                variant.route_geometry = geom
+                variant.route_distance_km = distance
+                variant.elevation_profile = ele_profile
+                variant.save(update_fields=["route_geometry", "route_distance_km", "elevation_profile"])
+        return response
 
 
 class EditionDetailView(StaffRequiredMixin, DetailView):

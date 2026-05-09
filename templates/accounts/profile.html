@@ -31,7 +31,8 @@
                  class="text-sm text-stone-500 file:mr-3 file:py-2 file:px-4 file:border-0 file:text-xs file:font-semibold file:uppercase file:tracking-widest file:bg-stone-100 file:text-navy hover:file:bg-stone-200 file:cursor-pointer">
         {% else %}
           <input type="{{ field.field.widget.input_type|default:'text' }}"
-                 name="{{ field.html_name }}" value="{{ field.value|default:'' }}"
+                 name="{{ field.html_name }}" 
+                 value="{% if field.field.widget.input_type == 'date' %}{{ field.value|date:'Y-m-d'|default:'' }}{% elif field.field.widget.input_type == 'time' %}{{ field.value|time:'H:i'|default:'' }}{% else %}{{ field.value|default:'' }}{% endif %}"
                  class="w-full border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-navy focus:outline-none focus:border-crimson focus:bg-white transition-colors">
         {% endif %}
         {% for err in field.errors %}<p class="text-red-500 text-xs mt-1">{{ err }}</p>{% endfor %}

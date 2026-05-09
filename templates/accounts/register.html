@@ -25,9 +25,8 @@
           {{ field.label }}{% if field.field.required %} <span class="text-crimson">*</span>{% endif %}
         </label>
         <input type="{{ field.field.widget.input_type|default:'text' }}"
-               name="{{ field.html_name }}" id="{{ field.auto_id }}"
-               value="{{ field.value|default:'' }}"
-               {% if field.field.required %}required{% endif %}
+               name="{{ field.html_name }}" 
+               value="{% if field.field.widget.input_type == 'date' %}{{ field.value|date:'Y-m-d'|default:'' }}{% elif field.field.widget.input_type == 'time' %}{{ field.value|time:'H:i'|default:'' }}{% else %}{{ field.value|default:'' }}{% endif %}"
                class="w-full border {% if field.errors %}border-red-400 bg-red-50{% else %}border-stone-200 bg-stone-50{% endif %} px-4 py-3 text-sm text-navy focus:outline-none focus:border-crimson focus:bg-white transition-colors">
         {% for err in field.errors %}
           <p class="text-red-500 text-xs mt-1">{{ err }}</p>

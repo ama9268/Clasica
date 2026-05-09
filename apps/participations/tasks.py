@@ -71,19 +71,23 @@ def process_strava_activity(self, activity_id: int, athlete_id: int):
             coords = [[pt[1], pt[0]] for pt in stream["data"]]  # [lon, lat]
             break
 
-    track_geojson = {"type": "LineString", "coordinates": coords} if coords else None
+    track_geometry = None
+    if coords:
+        from django.contrib.gis.geos import LineString
+        track_geometry = LineString(coords)
+        
     elapsed = detail_data.get("elapsed_time", 0)
 
     score, is_valid = 0.0, False
-    if coords and edition.route_geojson:
-        score, is_valid = validate_track(edition.route_geojson["coordinates"], coords)
+    if track_geometry and edition.route_geometry:
+        score, is_valid = validate_track(edition.route_geometry, track_geometry)
 
     StravaActivity.objects.update_or_create(
         participation=participation,
         defaults={
             "strava_activity_id": activity_id,
             "elapsed_time_seconds": elapsed,
-            "track_geojson": track_geojson,
+            "track_geometry": track_geometry,
             "is_valid": is_valid,
             "validation_score": score,
         },
@@ -123,36 +127,41 @@ def _refresh_token(user) -> bool:
     return True
 
 
-def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    R = 6371000.0
-    phi1, phi2 = radians(lat1), radians(lat2)
-    dphi = radians(lat2 - lat1)
-    dlambda = radians(lon2 - lon1)
-    a = sin(dphi / 2) ** 2 + cos(phi1) * cos(phi2) * sin(dlambda / 2) ** 2
-    return 2 * R * asin(sqrt(a))
-
-
 def validate_track(
-    official_coords: list,
-    user_coords: list,
+    edition_geometry,
+    user_geometry,
     threshold_m: float | None = None,
     min_score: float | None = None,
 ) -> tuple[float, bool]:
     from django.conf import settings
+    from django.db import connection
+    
     threshold_m = threshold_m or settings.GPX_MATCH_THRESHOLD_METERS
     min_score = min_score or settings.GPX_MATCH_MIN_SCORE
 
-    if not official_coords or not user_coords:
+    if not edition_geometry or not user_geometry:
         return 0.0, False
 
-    matched = 0
-    for off_lon, off_lat in official_coords:
-        closest = min(
-            _haversine(off_lat, off_lon, u_lat, u_lon)
-            for u_lon, u_lat in user_coords
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            WITH official_points AS (
+                SELECT (ST_DumpPoints(ST_Transform(ST_GeomFromEWKB(%s::bytea), 3857))).geom AS pt
+            )
+            SELECT
+                COUNT(*) AS total_pts,
+                SUM(CASE WHEN ST_DWithin(pt, ST_Transform(ST_GeomFromEWKB(%s::bytea), 3857), %s) THEN 1 ELSE 0 END) AS matched_pts
+            FROM official_points;
+            """,
+            [edition_geometry.ewkb, user_geometry.ewkb, threshold_m]
         )
-        if closest <= threshold_m:
-            matched += 1
+        row = cursor.fetchone()
 
-    score = matched / len(official_coords)
+    total_pts = row[0] or 0
+    matched_pts = row[1] or 0
+
+    if total_pts == 0:
+        return 0.0, False
+
+    score = matched_pts / total_pts
     return round(score, 4), score >= min_score

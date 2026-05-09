@@ -7,6 +7,13 @@ import sys
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'clasica_project.settings.development')
+    
+    # Configuración de GDAL/PROJ para Windows (Evita el error de proj.db)
+    if os.name == 'nt':
+        proj_path = os.path.join(os.path.dirname(__file__), 'venv', 'Lib', 'site-packages', 'osgeo', 'data', 'proj')
+        if os.path.exists(proj_path):
+            os.environ['PROJ_LIB'] = proj_path
+
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

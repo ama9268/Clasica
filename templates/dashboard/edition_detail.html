@@ -18,6 +18,12 @@
           {{ object.get_status_display }}
         </span>
         {% if object.status != 'results_published' %}
+        <a href="/dashboard/editions/{{ object.pk }}/edit/" class="btn-secondary text-xs py-2 px-4">
+          Editar
+        </a>
+        <a href="/dashboard/editions/{{ object.pk }}/delete/" class="btn-secondary text-xs py-2 px-4 text-red-600 border-red-200 hover:bg-red-50">
+          Eliminar
+        </a>
         <form method="post" action="/dashboard/editions/{{ object.pk }}/publish/">
           {% csrf_token %}
           <button type="submit"

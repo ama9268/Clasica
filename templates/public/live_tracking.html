@@ -28,73 +28,77 @@
 
 {% block extra_js %}
 <script>
-const EDITION_ID = {{ edition.pk }};
-const EDITION_GEOJSON = {{ edition.route_geojson|default:"null"|safe }};
-const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/tracking/${EDITION_ID}/`;
+document.addEventListener("DOMContentLoaded", function() {
+  const EDITION_ID = {{ edition.pk }};
+  const EDITION_GEOJSON = {{ edition.route_geojson|default:"null"|safe }};
+  const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/tracking/${EDITION_ID}/`;
 
-// --- Leaflet map ---
-const map = L.map('live-map', { zoomControl: true });
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+  // --- Leaflet map ---
+  const map = L.map('live-map', { zoomControl: true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+    attribution: '&copy; OpenStreetMap contributors' 
+  }).addTo(map);
 
-if (EDITION_GEOJSON) {
-  const coords = EDITION_GEOJSON.coordinates.map(c => [c[1], c[0]]);
-  const line = L.polyline(coords, { color: '#e05020', weight: 4, opacity: 0.7 }).addTo(map);
-  map.fitBounds(line.getBounds(), { padding: [30, 30] });
-} else {
-  map.setView([40.4, -3.7], 12);
-}
-
-const markers = {};
-const colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4'];
-let colorIdx = 0;
-
-function getColor(userId) {
-  if (!markers[userId]?._color) return colors[colorIdx++ % colors.length];
-  return markers[userId]._color;
-}
-
-function updateCyclist(data) {
-  const { user_id, username, lat, lng, speed } = data;
-  if (!lat || !lng) return;
-
-  if (!markers[user_id]) {
-    const color = getColor(user_id);
-    const icon = L.divIcon({
-      className: '', html: `<div class="cyclist-dot" style="background:${color}"></div>`, iconSize: [14,14]
-    });
-    markers[user_id] = L.marker([lat, lng], { icon }).addTo(map).bindTooltip(username, { permanent: false });
-    markers[user_id]._color = color;
-    document.getElementById('no-cyclists').style.display = 'none';
-    const li = document.createElement('li');
-    li.id = `cyclist-${user_id}`;
-    li.innerHTML = `<span style="color:${color}" class="font-bold">●</span> <span class="font-medium">${username}</span> <span id="spd-${user_id}" class="text-gray-400 text-xs"></span>`;
-    document.getElementById('cyclists-list').appendChild(li);
+  if (EDITION_GEOJSON) {
+    const coords = EDITION_GEOJSON.coordinates.map(c => [c[1], c[0]]);
+    const line = L.polyline(coords, { color: '#8B1A2E', weight: 4, opacity: 0.7 }).addTo(map);
+    map.fitBounds(line.getBounds(), { padding: [30, 30] });
   } else {
-    markers[user_id].setLatLng([lat, lng]);
+    map.setView([38.35, -5.92], 13); // Default to Llerena area
   }
-  const spdEl = document.getElementById(`spd-${user_id}`);
-  if (spdEl && speed) spdEl.textContent = `${Math.round(speed)} km/h`;
-}
 
-// --- WebSocket ---
-let ws;
-function connect() {
-  ws = new WebSocket(WS_URL);
-  ws.onopen = () => {
-    document.getElementById('status-badge').textContent = 'Conectado';
-    document.getElementById('status-badge').className = 'text-xs font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700';
-  };
-  ws.onmessage = (e) => {
-    const data = JSON.parse(e.data);
-    if (data.type === 'position_update') updateCyclist(data);
-  };
-  ws.onclose = () => {
-    document.getElementById('status-badge').textContent = 'Reconectando…';
-    document.getElementById('status-badge').className = 'text-xs font-semibold px-3 py-1 rounded-full bg-yellow-100 text-yellow-700';
-    setTimeout(connect, 3000);
-  };
-  ws.onerror = () => ws.close();
-}
-connect();
+  const markers = {};
+  const colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4'];
+  let colorIdx = 0;
+
+  function getColor(userId) {
+    if (!markers[userId]?._color) return colors[colorIdx++ % colors.length];
+    return markers[userId]._color;
+  }
+
+  function updateCyclist(data) {
+    const { user_id, username, lat, lng, speed } = data;
+    if (!lat || !lng) return;
+
+    if (!markers[user_id]) {
+      const color = getColor(user_id);
+      const icon = L.divIcon({
+        className: '', html: `<div class="cyclist-dot" style="background:${color}"></div>`, iconSize: [14,14]
+      });
+      markers[user_id] = L.marker([lat, lng], { icon }).addTo(map).bindTooltip(username, { permanent: false });
+      markers[user_id]._color = color;
+      document.getElementById('no-cyclists').style.display = 'none';
+      const li = document.createElement('li');
+      li.id = `cyclist-${user_id}`;
+      li.innerHTML = `<span style="color:${color}" class="font-bold">●</span> <span class="font-medium">${username}</span> <span id="spd-${user_id}" class="text-gray-400 text-xs"></span>`;
+      document.getElementById('cyclists-list').appendChild(li);
+    } else {
+      markers[user_id].setLatLng([lat, lng]);
+    }
+    const spdEl = document.getElementById(`spd-${user_id}`);
+    if (spdEl && speed) spdEl.textContent = `${Math.round(speed)} km/h`;
+  }
+
+  // --- WebSocket ---
+  let ws;
+  function connect() {
+    ws = new WebSocket(WS_URL);
+    ws.onopen = () => {
+      document.getElementById('status-badge').textContent = 'Conectado';
+      document.getElementById('status-badge').className = 'text-xs font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700';
+    };
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type === 'position_update') updateCyclist(data);
+    };
+    ws.onclose = () => {
+      document.getElementById('status-badge').textContent = 'Reconectando…';
+      document.getElementById('status-badge').className = 'text-xs font-semibold px-3 py-1 rounded-full bg-yellow-100 text-yellow-700';
+      setTimeout(connect, 3000);
+    };
+    ws.onerror = () => ws.close();
+  }
+  connect();
+});
 </script>
 {% endblock %}

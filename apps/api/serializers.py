@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework_gis.fields import GeometryField
 from apps.accounts.models import UserProfile
 from apps.editions.models import Edition
 from apps.classifications.models import Classification
@@ -53,7 +54,7 @@ class ClassificationSerializer(serializers.ModelSerializer):
 
 class EditionDetailSerializer(EditionSerializer):
     classifications = serializers.SerializerMethodField()
-    route_geojson = serializers.JSONField()
+    route_geojson = GeometryField(source='route_geom', read_only=True)
     user_registered = serializers.SerializerMethodField()
 
     class Meta(EditionSerializer.Meta):

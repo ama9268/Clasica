@@ -16,11 +16,13 @@ DJANGO_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.gis",
 ]
 
 THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_gis",
     "channels",
 ]
 
@@ -72,8 +74,7 @@ ASGI_APPLICATION = "clasica_project.asgi.application"
 DATABASES = {
     "default": env.db("DATABASE_URL"),
 }
-# En producción (Docker/Linux con GDAL disponible) cambiar a:
-# DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
+DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
 
 AUTH_USER_MODEL = "accounts.UserProfile"
 
@@ -162,3 +163,10 @@ LOGGING = {
         "apps": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
     },
 }
+
+import os
+if os.name == 'nt':
+    osgeo_path = BASE_DIR / "venv" / "Lib" / "site-packages" / "osgeo"
+    if osgeo_path.exists():
+        GDAL_LIBRARY_PATH = str(osgeo_path / "gdal.dll")
+        GEOS_LIBRARY_PATH = str(osgeo_path / "geos_c.dll")

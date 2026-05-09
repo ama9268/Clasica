@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Eliminar {{ object.name }} — Panel{% endblock %}
+{% block content %}
+
+<div class="bg-navy py-12 px-6">
+  <div class="max-w-2xl mx-auto">
+    <a href="/dashboard/editions/{{ object.pk }}/" class="text-xs text-stone-400 uppercase tracking-widest hover:text-white transition-colors">← Volver a la edición</a>
+    <h1 class="font-display font-black text-white text-3xl mt-2 leading-none">ELIMINAR EDICIÓN</h1>
+  </div>
+</div>
+
+<div class="max-w-2xl mx-auto px-6 py-12">
+  <div class="card-classic border-red-200">
+    <div class="mb-6">
+      <h2 class="text-xl font-bold text-navy">¿Estás seguro?</h2>
+      <p class="text-stone-500 mt-2">
+        Vas a eliminar permanentemente la edición <strong>"{{ object.name }}"</strong> del día {{ object.date|date:"d/m/Y" }}.
+      </p>
+      <p class="text-red-500 mt-2 font-semibold text-sm">
+        Esta acción no se puede deshacer. También se eliminarán las participaciones, fotos y tiempos asociados.
+      </p>
+    </div>
+
+    <form method="post" class="flex gap-3">
+      {% csrf_token %}
+      <button type="submit" class="bg-red-600 text-white px-6 py-3 text-sm font-bold tracking-wide uppercase hover:bg-red-700 transition-colors">
+        Sí, eliminar edición
+      </button>
+      <a href="/dashboard/editions/{{ object.pk }}/" class="btn-secondary flex items-center justify-center">
+        Cancelar
+      </a>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

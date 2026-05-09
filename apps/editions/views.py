@@ -3,9 +3,10 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, DetailView, View, TemplateView
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
-from .models import Edition
+from apps.editions.models import Edition
 from apps.participations.models import Participation
 from apps.classifications.models import Classification
+from apps.editions.services.aemet import get_weather_forecast_for_edition
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,9 @@ class EditionDetailView(LoginRequiredMixin, DetailView):
         ctx["media_photos"] = edition.media.filter(media_type="photo").order_by("order")
         ctx["media_videos"] = edition.media.filter(media_type="video").order_by("order")
 
+        # Weather forecast (AEMET)
+        ctx["weather"] = get_weather_forecast_for_edition(edition.date)
+
         return ctx
 
 
@@ -111,8 +115,15 @@ class PublicProfileView(LoginRequiredMixin, TemplateView):
 
 
 class LiveTrackingView(LoginRequiredMixin, TemplateView):
-    """Mapa en directo — solo ciclistas registrados."""
+    """Mapa en directo — solo ciclistas registrados y en horario de ruta."""
     template_name = "public/live_tracking.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        edition = get_object_or_404(Edition, pk=self.kwargs["edition_id"])
+        if not edition.is_live and not request.user.is_staff:
+            messages.warning(request, "El seguimiento en directo solo está disponible durante el horario de la ruta.")
+            return redirect("edition_detail", pk=edition.pk)
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
