@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}En directo — {{ edition.name }}{% endblock %}
+{% block extra_head %}
+<style>
+  #live-map { height: 70vh; min-height: 400px; }
+  .cyclist-dot { width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <h1 class="text-xl font-bold text-gray-800">En directo · {{ edition.name }}</h1>
+    <p class="text-sm text-gray-500">{{ edition.date|date:"d \d\e F \d\e Y" }}</p>
+  </div>
+  <span id="status-badge" class="text-xs font-semibold px-3 py-1 rounded-full bg-yellow-100 text-yellow-700">Conectando…</span>
+</div>
+
+<div id="live-map" class="rounded-2xl shadow overflow-hidden border border-gray-100"></div>
+
+<div class="mt-4 bg-white rounded-2xl shadow p-4">
+  <h2 class="text-sm font-bold text-gray-700 mb-3">Ciclistas en ruta</h2>
+  <ul id="cyclists-list" class="space-y-2 text-sm text-gray-600">
+    <li class="text-gray-400 italic" id="no-cyclists">Esperando participantes…</li>
+  </ul>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const EDITION_ID = {{ edition.pk }};
+const EDITION_GEOJSON = {{ edition.route_geojson|default:"null"|safe }};
+const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/tracking/${EDITION_ID}/`;
+
+// --- Leaflet map ---
+const map = L.map('live-map', { zoomControl: true });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+
+if (EDITION_GEOJSON) {
+  const coords = EDITION_GEOJSON.coordinates.map(c => [c[1], c[0]]);
+  const line = L.polyline(coords, { color: '#e05020', weight: 4, opacity: 0.7 }).addTo(map);
+  map.fitBounds(line.getBounds(), { padding: [30, 30] });
+} else {
+  map.setView([40.4, -3.7], 12);
+}
+
+const markers = {};
+const colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4'];
+let colorIdx = 0;
+
+function getColor(userId) {
+  if (!markers[userId]?._color) return colors[colorIdx++ % colors.length];
+  return markers[userId]._color;
+}
+
+function updateCyclist(data) {
+  const { user_id, username, lat, lng, speed } = data;
+  if (!lat || !lng) return;
+
+  if (!markers[user_id]) {
+    const color = getColor(user_id);
+    const icon = L.divIcon({
+      className: '', html: `<div class="cyclist-dot" style="background:${color}"></div>`, iconSize: [14,14]
+    });
+    markers[user_id] = L.marker([lat, lng], { icon }).addTo(map).bindTooltip(username, { permanent: false });
+    markers[user_id]._color = color;
+    document.getElementById('no-cyclists').style.display = 'none';
+    const li = document.createElement('li');
+    li.id = `cyclist-${user_id}`;
+    li.innerHTML = `<span style="color:${color}" class="font-bold">●</span> <span class="font-medium">${username}</span> <span id="spd-${user_id}" class="text-gray-400 text-xs"></span>`;
+    document.getElementById('cyclists-list').appendChild(li);
+  } else {
+    markers[user_id].setLatLng([lat, lng]);
+  }
+  const spdEl = document.getElementById(`spd-${user_id}`);
+  if (spdEl && speed) spdEl.textContent = `${Math.round(speed)} km/h`;
+}
+
+// --- WebSocket ---
+let ws;
+function connect() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => {
+    document.getElementById('status-badge').textContent = 'Conectado';
+    document.getElementById('status-badge').className = 'text-xs font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700';
+  };
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'position_update') updateCyclist(data);
+  };
+  ws.onclose = () => {
+    document.getElementById('status-badge').textContent = 'Reconectando…';
+    document.getElementById('status-badge').className = 'text-xs font-semibold px-3 py-1 rounded-full bg-yellow-100 text-yellow-700';
+    setTimeout(connect, 3000);
+  };
+  ws.onerror = () => ws.close();
+}
+connect();
+</script>
+{% endblock %}

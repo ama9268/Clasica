@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Ediciones — La Clásica{% endblock %}
+{% block content %}
+
+<div class="bg-navy py-16 px-6 text-center">
+  <span class="section-label" style="border-color:#fff5;color:#ccc;">Archivo</span>
+  <h1 class="font-display font-black text-white mt-4 leading-none"
+      style="font-size:clamp(2.5rem,6vw,4.5rem);">TODAS LAS EDICIONES</h1>
+</div>
+
+<section class="max-w-6xl mx-auto px-6 py-16">
+  {% if editions %}
+  <div class="space-y-3">
+    {% for edition in editions %}
+    <a href="/editions/{{ edition.pk }}/"
+       class="card-classic group flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:border-crimson transition-colors block">
+      <div class="flex items-center gap-6">
+        <div class="text-stone-300 font-display font-bold text-3xl leading-none w-12 flex-shrink-0">
+          {{ edition.date|date:"d" }}
+        </div>
+        <div>
+          <div class="text-xs text-stone-400 uppercase tracking-widest">{{ edition.date|date:"F Y" }}</div>
+          <div class="font-serif font-bold text-navy text-base mt-0.5 group-hover:text-crimson transition-colors">
+            {{ edition.name }}
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-4 flex-shrink-0">
+        {% if edition.route_distance_km %}
+          <span class="text-stone-400 text-sm">{{ edition.route_distance_km }} km</span>
+        {% endif %}
+        <span class="badge {% if edition.status == 'open' %}badge-status-open{% elif edition.status == 'closed' %}badge-status-closed{% else %}badge-status-published{% endif %}">
+          {{ edition.get_status_display }}
+        </span>
+        <span class="text-crimson font-semibold text-sm hidden sm:inline">Ver →</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% if is_paginated %}
+  <div class="flex justify-center gap-3 mt-12">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}" class="btn-secondary py-2 px-6 text-xs">← Anterior</a>
+    {% endif %}
+    <span class="flex items-center text-xs text-stone-400 tracking-widest uppercase px-4">
+      {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}" class="btn-secondary py-2 px-6 text-xs">Siguiente →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="card-classic text-center py-16 text-stone-400">
+    <p class="font-display font-bold text-2xl text-navy">Próximamente</p>
+    <p class="text-sm mt-2">Las ediciones aparecerán aquí.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,13 @@
+django>=6.0
+djangorestframework
+djangorestframework-simplejwt
+psycopg2-binary
+daphne
+channels[daphne]
+channels-redis
+celery[redis]
+whitenoise
+Pillow
+gpxpy
+requests
+django-environ

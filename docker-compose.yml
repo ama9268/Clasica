@@ -1,0 +1,35 @@
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SERVICE: web
+      DJANGO_SETTINGS_MODULE: clasica_project.settings.production
+    volumes:
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+    ports:
+      - "8000:8000"
+    networks:
+      - dokploy-network
+
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SERVICE: worker
+      DJANGO_SETTINGS_MODULE: clasica_project.settings.production
+    volumes:
+      - media_data:/app/media
+    networks:
+      - dokploy-network
+
+volumes:
+  media_data:
+  static_data:
+
+networks:
+  dokploy-network:
+    external: true

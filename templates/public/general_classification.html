@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Clasificación General — La Clásica{% endblock %}
+{% block content %}
+
+<div class="bg-navy py-16 px-6 text-center">
+  <span class="section-label" style="border-color:#fff5;color:#aaa;">Acumulado histórico</span>
+  <h1 class="font-display font-black text-white mt-4 leading-none"
+      style="font-size:clamp(2.5rem,6vw,4.5rem);">CLASIFICACIÓN<br><span class="text-crimson">GENERAL</span></h1>
+</div>
+
+<section class="max-w-5xl mx-auto px-6 py-16">
+  {% if stats %}
+  <div class="card-classic p-0 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="border-b border-stone-100">
+        <tr class="text-xs uppercase tracking-widest text-stone-400 bg-stone-50">
+          <th class="text-left px-6 py-4">#</th>
+          <th class="text-left px-6 py-4">Ciclista</th>
+          <th class="text-left px-6 py-4 hidden sm:table-cell">Club</th>
+          <th class="text-center px-6 py-4">Rutas válidas</th>
+          <th class="text-center px-6 py-4 hidden sm:table-cell">Inscripciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in stats %}
+        <tr class="border-b border-stone-50 hover:bg-stone-50 transition-colors">
+          <td class="px-6 py-4 font-display font-bold text-2xl
+            {% if forloop.counter == 1 %}text-yellow-500
+            {% elif forloop.counter == 2 %}text-stone-400
+            {% elif forloop.counter == 3 %}text-amber-600
+            {% else %}text-stone-200{% endif %}">
+            {{ forloop.counter }}
+          </td>
+          <td class="px-6 py-4">
+            <a href="/perfil/{{ row.user__pk }}/"
+               class="font-semibold text-navy hover:text-crimson transition-colors">
+              {{ row.user__full_name|default:row.user__username }}
+            </a>
+          </td>
+          <td class="px-6 py-4 text-stone-400 hidden sm:table-cell">{{ row.user__club|default:"—" }}</td>
+          <td class="px-6 py-4 text-center">
+            <span class="font-display font-bold text-2xl text-crimson">{{ row.total_valid }}</span>
+          </td>
+          <td class="px-6 py-4 text-center text-stone-400 hidden sm:table-cell">{{ row.total_participations }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-classic text-center py-20">
+    <p class="font-display font-bold text-navy text-2xl">Sin resultados aún</p>
+    <p class="text-stone-400 text-sm mt-3">La clasificación se actualiza al publicar cada edición.</p>
+    <a href="/editions/" class="btn-primary inline-block mt-6">Ver ediciones</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}{{ object.name }} — Panel{% endblock %}
+
+{% block content %}
+<div class="bg-navy py-12 px-6">
+  <div class="max-w-6xl mx-auto">
+    <a href="/dashboard/editions/" class="text-xs text-stone-400 uppercase tracking-widest hover:text-white transition-colors">← Ediciones</a>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2">
+      <div>
+        <h1 class="font-display font-black text-white text-3xl leading-none">{{ object.name|upper }}</h1>
+        <p class="text-stone-400 text-sm mt-1">
+          {{ object.date|date:"l, d \d\e F \d\e Y" }}
+          {% if object.route_distance_km %}· {{ object.route_distance_km }} km{% endif %}
+        </p>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="badge {% if object.status == 'open' %}badge-status-open{% elif object.status == 'closed' %}badge-status-closed{% else %}badge-status-published{% endif %}">
+          {{ object.get_status_display }}
+        </span>
+        {% if object.status != 'results_published' %}
+        <form method="post" action="/dashboard/editions/{{ object.pk }}/publish/">
+          {% csrf_token %}
+          <button type="submit"
+                  onclick="return confirm('¿Calcular posiciones y publicar resultados?')"
+                  class="btn-primary text-xs py-2 px-4">
+            Publicar resultados
+          </button>
+        </form>
+        {% endif %}
+        <a href="/live/{{ object.pk }}/" target="_blank"
+           class="btn-secondary text-xs py-2 px-4" style="border-color:#fff5;color:#ccc;">
+          En directo →
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="max-w-6xl mx-auto px-6 py-12 space-y-12">
+
+  <!-- ═══ PARTICIPANTES ═══ -->
+  <div>
+    <div class="flex items-center gap-4 mb-5">
+      <span class="section-label">Pelotón</span>
+      <h2 class="font-display font-bold text-navy text-2xl">Participantes ({{ participations|length }})</h2>
+    </div>
+
+    {% if participations %}
+    <div class="card-classic p-0 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-stone-50 border-b border-stone-100">
+            <tr class="text-xs uppercase tracking-widest text-stone-400">
+              <th class="text-left px-6 py-3">Ciclista</th>
+              <th class="text-left px-6 py-3 hidden sm:table-cell">Club</th>
+              <th class="text-center px-6 py-3">Tiempo</th>
+              <th class="text-center px-6 py-3">Score</th>
+              <th class="text-center px-6 py-3">Válida</th>
+              <th class="text-center px-6 py-3 hidden sm:table-cell">Pos.</th>
+              <th class="text-center px-6 py-3">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in participations %}
+            <tr class="border-b border-stone-50 hover:bg-stone-50 transition-colors">
+              <td class="px-6 py-4">
+                <a href="/perfil/{{ p.user.pk }}/"
+                   class="font-semibold text-navy hover:text-crimson transition-colors">
+                  {{ p.user.full_name|default:p.user.username }}
+                </a>
+              </td>
+              <td class="px-6 py-4 text-stone-400 hidden sm:table-cell">{{ p.user.club|default:"—" }}</td>
+              <td class="px-6 py-4 text-center font-mono font-semibold text-navy">
+                {% if p.strava_activity %}{{ p.strava_activity.elapsed_formatted }}{% else %}—{% endif %}
+              </td>
+              <td class="px-6 py-4 text-center text-stone-400 text-xs">
+                {% if p.strava_activity %}{{ p.strava_activity.validation_score|floatformat:0|default:"—" }}%{% else %}—{% endif %}
+              </td>
+              <td class="px-6 py-4 text-center">
+                {% if p.strava_activity %}
+                  {% if p.strava_activity.is_valid %}
+                    <span class="text-green-600 font-bold">✓</span>
+                  {% else %}
+                    <span class="text-stone-300 font-bold">✗</span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-stone-200 text-xs">—</span>
+                {% endif %}
+              </td>
+              <td class="px-6 py-4 text-center text-stone-400 hidden sm:table-cell">
+                {% if p.classification %}
+                  <span class="font-display font-bold text-crimson">#{{ p.classification.position_overall }}</span>
+                {% else %}—{% endif %}
+              </td>
+              <td class="px-6 py-4 text-center">
+                {% if p.strava_activity %}
+                <form method="post" action="/dashboard/activities/{{ p.strava_activity.pk }}/validate/">
+                  {% csrf_token %}
+                  <button type="submit"
+                          class="text-xs px-3 py-1.5 border uppercase tracking-widest font-semibold transition-colors
+                            {% if p.strava_activity.is_valid %}border-red-200 text-red-500 hover:bg-red-50
+                            {% else %}border-green-200 text-green-600 hover:bg-green-50{% endif %}">
+                    {% if p.strava_activity.is_valid %}Invalidar{% else %}Validar{% endif %}
+                  </button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="card-classic text-center py-12">
+      <p class="font-display font-bold text-navy text-xl">Sin inscripciones</p>
+      <p class="text-stone-400 text-sm mt-2 font-light">Los participantes aparecerán aquí al inscribirse.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ═══ REPORTAJE MEDIA ═══ -->
+  <div>
+    <div class="flex items-center gap-4 mb-5">
+      <span class="section-label">Reportaje</span>
+      <h2 class="font-display font-bold text-navy text-2xl">Fotos y vídeos</h2>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+      <!-- Añadir foto -->
+      <div class="card-classic">
+        <h3 class="font-serif font-bold text-navy text-sm uppercase tracking-widest mb-5">Añadir foto</h3>
+        <form method="post" action="/dashboard/editions/{{ object.pk }}/media/add/"
+              enctype="multipart/form-data" class="space-y-4">
+          {% csrf_token %}
+          <input type="hidden" name="media_type" value="photo">
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-stone-500 mb-2">Archivo</label>
+            <input type="file" name="photo" accept="image/*" required
+                   class="text-sm text-stone-500 file:mr-3 file:py-1.5 file:px-3 file:border-0 file:text-xs file:font-semibold file:uppercase file:tracking-wide file:bg-stone-100 file:text-navy hover:file:bg-stone-200 file:cursor-pointer">
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-stone-500 mb-2">Pie de foto</label>
+            <input type="text" name="caption" placeholder="Descripción opcional"
+                   class="w-full border border-stone-200 bg-stone-50 px-4 py-2 text-sm focus:outline-none focus:border-crimson transition-colors">
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-stone-500 mb-2">Orden</label>
+            <input type="number" name="order" value="0" min="0"
+                   class="w-24 border border-stone-200 bg-stone-50 px-4 py-2 text-sm focus:outline-none focus:border-crimson transition-colors">
+          </div>
+          <button type="submit" class="btn-primary text-xs py-2 px-5">Subir foto</button>
+        </form>
+      </div>
+
+      <!-- Añadir vídeo -->
+      <div class="card-classic">
+        <h3 class="font-serif font-bold text-navy text-sm uppercase tracking-widest mb-5">Añadir vídeo</h3>
+        <form method="post" action="/dashboard/editions/{{ object.pk }}/media/add/"
+              class="space-y-4">
+          {% csrf_token %}
+          <input type="hidden" name="media_type" value="video">
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-stone-500 mb-2">URL YouTube / Vimeo</label>
+            <input type="url" name="video_url" required placeholder="https://youtube.com/watch?v=..."
+                   class="w-full border border-stone-200 bg-stone-50 px-4 py-2 text-sm focus:outline-none focus:border-crimson transition-colors">
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-stone-500 mb-2">Descripción</label>
+            <input type="text" name="caption" placeholder="Descripción opcional"
+                   class="w-full border border-stone-200 bg-stone-50 px-4 py-2 text-sm focus:outline-none focus:border-crimson transition-colors">
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-stone-500 mb-2">Orden</label>
+            <input type="number" name="order" value="0" min="0"
+                   class="w-24 border border-stone-200 bg-stone-50 px-4 py-2 text-sm focus:outline-none focus:border-crimson transition-colors">
+          </div>
+          <button type="submit" class="btn-primary text-xs py-2 px-5">Añadir vídeo</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Galería actual -->
+    {% with all_media=object.media.all %}
+    {% if all_media %}
+    <div class="mt-8">
+      <h3 class="font-serif font-bold text-navy text-sm uppercase tracking-widest mb-4">
+        Media publicada ({{ all_media|length }})
+      </h3>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {% for item in all_media %}
+        <div class="card-classic p-0 overflow-hidden group relative">
+          {% if item.media_type == 'photo' %}
+            <div class="aspect-square overflow-hidden">
+              <img src="{{ item.photo.url }}" alt="{{ item.caption }}"
+                   class="w-full h-full object-cover">
+            </div>
+          {% else %}
+            <div class="aspect-square bg-navy flex flex-col items-center justify-center gap-2">
+              <svg class="w-10 h-10 text-crimson" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span class="text-white text-xs font-light truncate px-2 max-w-full text-center">
+                {{ item.caption|default:"Vídeo" }}
+              </span>
+            </div>
+          {% endif %}
+          {% if item.caption and item.media_type == 'photo' %}
+          <div class="px-3 py-2 text-xs text-stone-500 border-t border-stone-100 truncate">
+            {{ item.caption }}
+          </div>
+          {% endif %}
+          <!-- Botón eliminar -->
+          <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <form method="post" action="/dashboard/media/{{ item.pk }}/delete/"
+                  onsubmit="return confirm('¿Eliminar este elemento?')">
+              {% csrf_token %}
+              <button type="submit"
+                      class="bg-red-500 text-white w-7 h-7 flex items-center justify-center text-xs hover:bg-red-600 transition-colors">
+                ✕
+              </button>
+            </form>
+          </div>
+          <!-- Badge tipo -->
+          <div class="absolute top-2 left-2">
+            <span class="text-xs px-2 py-0.5 font-semibold uppercase tracking-wide
+              {% if item.media_type == 'photo' %}bg-white text-navy{% else %}bg-crimson text-white{% endif %}">
+              {{ item.get_media_type_display }}
+            </span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div class="mt-6 card-classic text-center py-8 text-stone-400">
+      <p class="text-sm font-light">Sin media todavía. Sube fotos o añade vídeos de YouTube / Vimeo.</p>
+    </div>
+    {% endif %}
+    {% endwith %}
+  </div>
+
+</div>
+{% endblock %}

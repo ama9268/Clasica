@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Panel — La Clásica{% endblock %}
+{% block content %}
+
+<div class="bg-navy py-12 px-6">
+  <div class="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <div class="text-xs text-stone-400 uppercase tracking-widest mb-1">Panel del organizador</div>
+      <h1 class="font-display font-black text-white text-3xl leading-none">LA CLÁSICA</h1>
+    </div>
+    <a href="/dashboard/editions/new/" class="btn-primary self-start sm:self-center">+ Nueva edición</a>
+  </div>
+</div>
+
+<div class="max-w-6xl mx-auto px-6 py-12">
+
+  <!-- Stats -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
+    <div class="card-classic text-center">
+      <div class="font-display font-black text-4xl text-crimson">{{ editions|length }}</div>
+      <div class="text-xs text-stone-400 uppercase tracking-wider mt-1">Ediciones</div>
+    </div>
+    <div class="card-classic text-center">
+      <div class="font-display font-black text-4xl text-navy">{{ total_users }}</div>
+      <div class="text-xs text-stone-400 uppercase tracking-wider mt-1">Participantes</div>
+    </div>
+  </div>
+
+  <!-- Tabla ediciones -->
+  <div class="card-classic p-0 overflow-hidden">
+    <div class="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
+      <h2 class="font-serif font-bold text-navy text-sm uppercase tracking-widest">Últimas ediciones</h2>
+      <a href="/dashboard/editions/" class="nav-link hover:text-crimson">Ver todas →</a>
+    </div>
+    <table class="w-full text-sm">
+      <thead class="bg-stone-50 border-b border-stone-100">
+        <tr class="text-xs uppercase tracking-widest text-stone-400">
+          <th class="text-left px-6 py-3">Edición</th>
+          <th class="text-left px-6 py-3 hidden sm:table-cell">Fecha</th>
+          <th class="text-left px-6 py-3">Estado</th>
+          <th class="px-6 py-3"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for edition in editions %}
+        <tr class="border-b border-stone-50 hover:bg-stone-50 transition-colors">
+          <td class="px-6 py-4 font-semibold text-navy">{{ edition.name }}</td>
+          <td class="px-6 py-4 text-stone-400 hidden sm:table-cell">{{ edition.date|date:"d/m/Y" }}</td>
+          <td class="px-6 py-4">
+            <span class="badge {% if edition.status == 'open' %}badge-status-open{% elif edition.status == 'closed' %}badge-status-closed{% else %}badge-status-published{% endif %}">
+              {{ edition.get_status_display }}
+            </span>
+          </td>
+          <td class="px-6 py-4 text-right">
+            <a href="/dashboard/editions/{{ edition.pk }}/"
+               class="text-xs font-semibold uppercase tracking-widest text-crimson hover:text-crimson-dark">Gestionar →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

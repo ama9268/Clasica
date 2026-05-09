@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.full_name|default:profile.username }} — La Clásica{% endblock %}
+{% block content %}
+
+<!-- Header perfil -->
+<div class="bg-navy py-14 px-6">
+  <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-start sm:items-center gap-6">
+    {% if profile.photo %}
+      <img src="{{ profile.photo.url }}" alt="{{ profile.full_name }}"
+           class="w-20 h-20 object-cover border-2 border-crimson flex-shrink-0">
+    {% else %}
+      <div class="w-20 h-20 bg-crimson flex items-center justify-center text-white font-display font-bold text-3xl flex-shrink-0">
+        {{ profile.full_name|default:profile.username|first|upper }}
+      </div>
+    {% endif %}
+    <div>
+      <div class="text-xs text-stone-400 uppercase tracking-widest mb-1">Perfil</div>
+      <h1 class="font-display font-black text-white text-4xl leading-none">
+        {{ profile.full_name|default:profile.username|upper }}
+      </h1>
+      {% if profile.club %}<p class="text-stone-300 text-sm mt-2">{{ profile.club }}</p>{% endif %}
+    </div>
+  </div>
+</div>
+
+<section class="max-w-5xl mx-auto px-6 py-12">
+
+  <!-- Stats -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-12">
+    <div class="card-classic text-center">
+      <div class="font-display font-black text-4xl text-navy">{{ participations|length }}</div>
+      <div class="text-xs text-stone-400 uppercase tracking-wider mt-1">Inscripciones</div>
+    </div>
+    <div class="card-classic text-center">
+      <div class="font-display font-black text-4xl text-crimson">
+        {% with ns=namespace %}
+          {% for p in participations %}{% if p.strava_activity.is_valid %}{% endif %}{% endfor %}
+        {% endwith %}
+        {{ participations|length }}
+      </div>
+      <div class="text-xs text-stone-400 uppercase tracking-wider mt-1">Rutas válidas</div>
+    </div>
+  </div>
+
+  <!-- Historial -->
+  {% if participations %}
+  <div class="card-classic p-0 overflow-hidden">
+    <div class="px-6 py-4 border-b border-stone-100">
+      <h2 class="font-serif font-bold text-navy text-sm uppercase tracking-widest">Historial de participaciones</h2>
+    </div>
+    <table class="w-full text-sm">
+      <thead class="bg-stone-50 border-b border-stone-100">
+        <tr class="text-xs uppercase tracking-widest text-stone-400">
+          <th class="text-left px-6 py-3">Edición</th>
+          <th class="text-left px-6 py-3 hidden sm:table-cell">Fecha</th>
+          <th class="text-center px-6 py-3">Tiempo</th>
+          <th class="text-center px-6 py-3 hidden sm:table-cell">Pos.</th>
+          <th class="text-center px-6 py-3">Cat.</th>
+          <th class="text-center px-6 py-3">✓</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in participations %}
+        <tr class="border-b border-stone-50 hover:bg-stone-50 transition-colors">
+          <td class="px-6 py-4">
+            <a href="/editions/{{ p.edition.pk }}/"
+               class="font-semibold text-navy hover:text-crimson transition-colors">
+              {{ p.edition.name }}
+            </a>
+          </td>
+          <td class="px-6 py-4 text-stone-400 hidden sm:table-cell">{{ p.edition.date|date:"d/m/Y" }}</td>
+          <td class="px-6 py-4 text-center font-mono font-semibold text-navy">
+            {% if p.strava_activity %}{{ p.strava_activity.elapsed_formatted }}{% else %}—{% endif %}
+          </td>
+          <td class="px-6 py-4 text-center text-stone-500 hidden sm:table-cell">
+            {% if p.classification %}
+              <span class="font-display font-bold text-lg text-crimson">#{{ p.classification.position_overall }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="px-6 py-4 text-center">
+            {% if p.classification %}
+              <span class="badge" style="background:#F8F0EE;color:#8B1A2E;border:1px solid #E8D0D0;font-size:0.6rem;">
+                {{ p.classification.get_category_display }}
+              </span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="px-6 py-4 text-center">
+            {% if p.strava_activity %}
+              {% if p.strava_activity.is_valid %}
+                <span class="text-green-600 font-bold">✓</span>
+              {% else %}
+                <span class="text-stone-300">✗</span>
+              {% endif %}
+            {% else %}
+              <span class="text-stone-200">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-classic text-center py-16">
+    <p class="font-display font-bold text-navy text-xl">Sin participaciones aún</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

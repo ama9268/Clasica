@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Nueva edición — Panel{% endblock %}
+{% block content %}
+
+<div class="bg-navy py-12 px-6">
+  <div class="max-w-2xl mx-auto">
+    <a href="/dashboard/editions/" class="text-xs text-stone-400 uppercase tracking-widest hover:text-white transition-colors">← Ediciones</a>
+    <h1 class="font-display font-black text-white text-3xl mt-2 leading-none">NUEVA EDICIÓN</h1>
+  </div>
+</div>
+
+<div class="max-w-2xl mx-auto px-6 py-12">
+  <div class="card-classic">
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
+      {% csrf_token %}
+
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-stone-500 mb-2">Fecha <span class="text-crimson">*</span></label>
+        <input type="date" name="date" required value="{{ form.date.value|default:'' }}"
+               class="w-full border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-navy focus:outline-none focus:border-crimson focus:bg-white transition-colors">
+        {% for err in form.date.errors %}<p class="text-red-500 text-xs mt-1">{{ err }}</p>{% endfor %}
+      </div>
+
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-stone-500 mb-2">Nombre <span class="text-crimson">*</span></label>
+        <input type="text" name="name" required value="{{ form.name.value|default:'' }}"
+               placeholder="Ej: Clásica del Congost"
+               class="w-full border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-navy focus:outline-none focus:border-crimson focus:bg-white transition-colors">
+        {% for err in form.name.errors %}<p class="text-red-500 text-xs mt-1">{{ err }}</p>{% endfor %}
+      </div>
+
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-stone-500 mb-2">Ruta oficial (GPX)</label>
+        <input type="file" name="route_gpx" accept=".gpx"
+               class="text-sm text-stone-500 file:mr-3 file:py-2 file:px-4 file:border-0 file:text-xs file:font-semibold file:uppercase file:tracking-widest file:bg-stone-100 file:text-navy hover:file:bg-stone-200 file:cursor-pointer">
+        <p class="text-xs text-stone-400 mt-2 font-light">
+          Al subir el GPX se calcula la distancia y se activa la validación automática desde Strava.
+        </p>
+      </div>
+
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-stone-500 mb-2">Estado</label>
+        <select name="status"
+                class="w-full border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-navy focus:outline-none focus:border-crimson transition-colors">
+          <option value="open" {% if form.status.value == 'open' %}selected{% endif %}>Abierta (inscripciones)</option>
+          <option value="closed" {% if form.status.value == 'closed' %}selected{% endif %}>Cerrada</option>
+          <option value="results_published" {% if form.status.value == 'results_published' %}selected{% endif %}>Resultados publicados</option>
+        </select>
+      </div>
+
+      <div class="flex gap-3 pt-2 border-t border-stone-100">
+        <button type="submit" class="btn-primary">Crear edición</button>
+        <a href="/dashboard/editions/" class="btn-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

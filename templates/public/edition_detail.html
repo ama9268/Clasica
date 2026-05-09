@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}{{ edition.name }} — La Clásica{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4" defer></script>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="bg-navy py-14 px-6">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-xs text-stone-400 uppercase tracking-widest mb-2">{{ edition.date|date:"l, d \d\e F \d\e Y" }}</div>
+    <h1 class="font-display font-black text-white leading-none"
+        style="font-size:clamp(2.5rem,6vw,4.5rem);">{{ edition.name|upper }}</h1>
+    <div class="flex flex-wrap items-center gap-4 mt-4">
+      {% if edition.route_distance_km %}
+        <span class="text-stone-300 text-sm">{{ edition.route_distance_km }} km</span>
+      {% endif %}
+      <span class="badge {% if edition.status == 'open' %}badge-status-open{% elif edition.status == 'closed' %}badge-status-closed{% else %}badge-status-published{% endif %}">
+        {{ edition.get_status_display }}
+      </span>
+      {% if edition.status == 'open' %}
+        <a href="/live/{{ edition.pk }}/" class="text-xs text-stone-300 border border-stone-500 px-3 py-1 hover:border-white hover:text-white transition-colors uppercase tracking-widest">
+          Ver en directo →
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="max-w-6xl mx-auto px-6 py-12 space-y-12">
+
+  <!-- ═══ MAPA + SIDEBAR ═══ -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+    <!-- Sidebar acciones -->
+    <aside class="space-y-5">
+
+      {% if edition.is_registration_open %}
+      <div class="card-classic">
+        <h3 class="font-serif font-bold text-navy text-xs uppercase tracking-widest mb-4">Inscripción</h3>
+        {% if user_participation %}
+          <div class="flex items-center gap-2 text-green-700 text-sm font-semibold">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            Estás inscrito/a
+          </div>
+          {% if user_participation.strava_activity %}
+            {% with act=user_participation.strava_activity %}
+            <div class="mt-4 pt-4 border-t border-stone-100">
+              <div class="text-xs text-stone-400 uppercase tracking-widest mb-1">Tu tiempo</div>
+              <div class="text-2xl font-display font-bold {% if act.is_valid %}text-crimson{% else %}text-stone-400{% endif %}">
+                {{ act.elapsed_formatted }}
+              </div>
+              <div class="text-xs mt-1 {% if act.is_valid %}text-green-600{% else %}text-red-400{% endif %} font-semibold">
+                {% if act.is_valid %}✓ Ruta válida{% else %}✗ Fuera de ruta{% endif %}
+                ({{ act.validation_score|floatformat:0 }}%)
+              </div>
+            </div>
+            {% endwith %}
+          {% elif user.strava_connected %}
+            <p class="text-xs text-stone-400 mt-3 font-light">Sube tu actividad en Strava. La importamos automáticamente.</p>
+          {% else %}
+            <a href="/accounts/strava/connect/" class="inline-block mt-3 text-xs text-crimson hover:underline">Conectar Strava →</a>
+          {% endif %}
+        {% else %}
+          <form method="post" action="/editions/{{ edition.pk }}/register/">
+            {% csrf_token %}
+            <button class="btn-primary w-full text-center">Inscribirme</button>
+          </form>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if edition.route_gpx %}
+      <div class="card-classic py-4">
+        <a href="{{ edition.route_gpx.url }}"
+           class="flex items-center gap-2 text-navy text-sm font-semibold hover:text-crimson transition-colors">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Descargar GPX
+        </a>
+      </div>
+      {% endif %}
+
+      <!-- Resumen inscritos -->
+      <div class="card-classic">
+        <div class="text-xs text-stone-400 uppercase tracking-widest mb-1">Inscritos</div>
+        <div class="font-display font-black text-4xl text-navy">{{ participations|length }}</div>
+        {% if edition.results_published %}
+          <div class="text-xs text-stone-400 uppercase tracking-widest mt-3 mb-1">Finalizaron</div>
+          <div class="font-display font-black text-3xl text-crimson">{{ classifications|length }}</div>
+        {% endif %}
+      </div>
+    </aside>
+
+    <!-- Mapa -->
+    <div class="lg:col-span-2">
+      {% if edition.route_geojson %}
+      <div class="card-classic p-0 overflow-hidden" style="height:340px;">
+        <div id="map" style="height:100%;"></div>
+      </div>
+      {% else %}
+      <div class="card-classic flex items-center justify-center text-stone-300" style="height:340px;">
+        <p class="text-sm font-light">La ruta se publicará próximamente</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ═══ LISTA DE INSCRITOS ═══ -->
+  <div>
+    <div class="flex items-center gap-4 mb-6">
+      <span class="section-label">Pelotón</span>
+      <h2 class="font-display font-bold text-navy text-2xl">Ciclistas inscritos</h2>
+    </div>
+
+    {% if participations %}
+    <div class="card-classic p-0 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-stone-50 border-b border-stone-100">
+          <tr class="text-xs uppercase tracking-widest text-stone-400">
+            <th class="text-left px-6 py-3">Ciclista</th>
+            <th class="text-left px-6 py-3 hidden sm:table-cell">Club</th>
+            {% if edition.results_published %}
+            <th class="text-center px-6 py-3">Tiempo</th>
+            <th class="text-center px-6 py-3">Pos.</th>
+            <th class="text-center px-6 py-3 hidden sm:table-cell">Cat.</th>
+            {% else %}
+            <th class="text-center px-6 py-3">Estado Strava</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in participations %}
+          <tr class="border-b border-stone-50 hover:bg-stone-50 transition-colors
+            {% if p.user == user %}bg-orange-50{% endif %}">
+            <td class="px-6 py-4">
+              <a href="/perfil/{{ p.user.pk }}/"
+                 class="font-semibold hover:text-crimson transition-colors
+                   {% if p.user == user %}text-crimson{% else %}text-navy{% endif %}">
+                {{ p.user.full_name|default:p.user.username }}
+                {% if p.user == user %}<span class="text-xs text-stone-400 font-normal ml-1">(tú)</span>{% endif %}
+              </a>
+            </td>
+            <td class="px-6 py-4 text-stone-400 hidden sm:table-cell">{{ p.user.club|default:"—" }}</td>
+            {% if edition.results_published %}
+              <td class="px-6 py-4 text-center font-mono font-semibold text-navy">
+                {% if p.classification %}{{ p.classification.time_formatted }}{% else %}—{% endif %}
+              </td>
+              <td class="px-6 py-4 text-center">
+                {% if p.classification %}
+                  <span class="font-display font-bold text-xl
+                    {% if p.classification.position_overall == 1 %}text-yellow-500
+                    {% elif p.classification.position_overall == 2 %}text-stone-400
+                    {% elif p.classification.position_overall == 3 %}text-amber-600
+                    {% else %}text-navy{% endif %}">
+                    #{{ p.classification.position_overall }}
+                  </span>
+                {% else %}—{% endif %}
+              </td>
+              <td class="px-6 py-4 text-center hidden sm:table-cell">
+                {% if p.classification %}
+                  <span class="badge" style="background:#F8F0EE;color:#8B1A2E;border:1px solid #E8D0D0;font-size:0.6rem;">
+                    {{ p.classification.get_category_display }}
+                  </span>
+                {% else %}—{% endif %}
+              </td>
+            {% else %}
+              <td class="px-6 py-4 text-center">
+                {% if p.strava_activity %}
+                  {% if p.strava_activity.is_valid %}
+                    <span class="text-green-600 text-xs font-semibold">✓ Importado</span>
+                  {% else %}
+                    <span class="text-stone-400 text-xs">Actividad recibida</span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-stone-300 text-xs">Pendiente</span>
+                {% endif %}
+              </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card-classic text-center py-10 text-stone-400">
+      <p class="font-display font-bold text-navy text-xl">Sin inscritos todavía</p>
+      <p class="text-sm mt-2 font-light">Sé el primero en apuntarte.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ═══ CLASIFICACIÓN (solo si resultados publicados) ═══ -->
+  {% if edition.results_published and classifications %}
+  <div>
+    <div class="flex items-center gap-4 mb-6">
+      <span class="section-label">Resultados</span>
+      <h2 class="font-display font-bold text-navy text-2xl">Clasificación final</h2>
+    </div>
+
+    <!-- Podio top 3 -->
+    {% if classifications|length >= 1 %}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      {% for cl in classifications %}
+        {% if cl.position_overall <= 3 %}
+        <div class="card-classic text-center {% if cl.position_overall == 1 %}border-yellow-300 bg-yellow-50{% elif cl.position_overall == 2 %}border-stone-300 bg-stone-50{% else %}border-amber-200 bg-amber-50{% endif %}">
+          <div class="font-display font-black text-5xl
+            {% if cl.position_overall == 1 %}text-yellow-500
+            {% elif cl.position_overall == 2 %}text-stone-400
+            {% else %}text-amber-600{% endif %}">
+            {{ cl.position_overall }}
+          </div>
+          <a href="/perfil/{{ cl.participation.user.pk }}/"
+             class="block font-serif font-bold text-navy text-base mt-2 hover:text-crimson transition-colors leading-snug">
+            {{ cl.participation.user.full_name|default:cl.participation.user.username }}
+          </a>
+          <div class="text-stone-400 text-xs mt-1">{{ cl.participation.user.club|default:"" }}</div>
+          <div class="font-mono font-bold text-2xl text-crimson mt-3">{{ cl.time_formatted }}</div>
+          <div class="badge mt-2" style="background:#F8F0EE;color:#8B1A2E;border:1px solid #E8D0D0;font-size:0.6rem;">
+            {{ cl.get_category_display }}
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Tabla completa por categorías -->
+    {% for category_key, category_label in classifications.0.get_category_display|default:""|slice:"0:0" %}{% endfor %}
+    <div class="card-classic p-0 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-stone-50 border-b border-stone-100">
+          <tr class="text-xs uppercase tracking-widest text-stone-400">
+            <th class="text-left px-6 py-3">#</th>
+            <th class="text-left px-6 py-3">Ciclista</th>
+            <th class="text-left px-6 py-3 hidden sm:table-cell">Club</th>
+            <th class="text-center px-6 py-3">Cat.</th>
+            <th class="text-center px-6 py-3 hidden sm:table-cell">Pos. cat.</th>
+            <th class="text-right px-6 py-3">Tiempo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cl in classifications %}
+          <tr class="border-b border-stone-50 hover:bg-stone-50 transition-colors
+            {% if cl.participation.user == user %}bg-orange-50{% endif %}">
+            <td class="px-6 py-4 font-display font-bold text-xl
+              {% if cl.position_overall == 1 %}text-yellow-500
+              {% elif cl.position_overall == 2 %}text-stone-400
+              {% elif cl.position_overall == 3 %}text-amber-600
+              {% else %}text-stone-300{% endif %}">
+              {{ cl.position_overall }}
+            </td>
+            <td class="px-6 py-4">
+              <a href="/perfil/{{ cl.participation.user.pk }}/"
+                 class="font-semibold hover:text-crimson transition-colors
+                   {% if cl.participation.user == user %}text-crimson{% else %}text-navy{% endif %}">
+                {{ cl.participation.user.full_name|default:cl.participation.user.username }}
+              </a>
+            </td>
+            <td class="px-6 py-4 text-stone-400 hidden sm:table-cell">{{ cl.participation.user.club|default:"—" }}</td>
+            <td class="px-6 py-4 text-center">
+              <span class="badge" style="background:#F8F0EE;color:#8B1A2E;border:1px solid #E8D0D0;font-size:0.6rem;">
+                {{ cl.get_category_display }}
+              </span>
+            </td>
+            <td class="px-6 py-4 text-center text-stone-400 hidden sm:table-cell">
+              #{{ cl.position_category }}
+            </td>
+            <td class="px-6 py-4 text-right font-mono font-bold text-navy">{{ cl.time_formatted }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ═══ REPORTAJE — FOTOS ═══ -->
+  {% if media_photos %}
+  <div>
+    <div class="flex items-center gap-4 mb-6">
+      <span class="section-label">Reportaje</span>
+      <h2 class="font-display font-bold text-navy text-2xl">Galería de fotos</h2>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      {% for photo in media_photos %}
+      <a href="{{ photo.photo.url }}" target="_blank"
+         class="block aspect-square overflow-hidden border border-stone-200 hover:border-crimson transition-colors group">
+        <img src="{{ photo.photo.url }}" alt="{{ photo.caption }}"
+             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ═══ REPORTAJE — VÍDEOS ═══ -->
+  {% if media_videos %}
+  <div>
+    <div class="flex items-center gap-4 mb-6">
+      <span class="section-label">Reportaje</span>
+      <h2 class="font-display font-bold text-navy text-2xl">Vídeos</h2>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      {% for video in media_videos %}
+      <div class="card-classic p-0 overflow-hidden">
+        <div class="aspect-video">
+          <iframe src="{{ video.embed_url }}" class="w-full h-full"
+                  frameborder="0" allowfullscreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+          </iframe>
+        </div>
+        {% if video.caption %}
+        <div class="px-5 py-3 text-sm text-stone-500 font-light border-t border-stone-100">{{ video.caption }}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div><!-- /main container -->
+{% endblock %}
+
+{% block extra_js %}
+{% if edition.route_geojson %}
+<script>
+const coords = {{ edition.route_geojson|safe }}.coordinates.map(c => [c[1], c[0]]);
+const map = L.map('map', { scrollWheelZoom: false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+const line = L.polyline(coords, { color: '#8B1A2E', weight: 4, opacity: 0.9 }).addTo(map);
+map.fitBounds(line.getBounds(), { padding: [24, 24] });
+</script>
+{% endif %}
+{% endblock %}

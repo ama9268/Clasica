@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}La Clásica del Miércoles{% endblock %}</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=Inter:wght@300;400;500;600&family=Libre+Baskerville:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream:   '#F2EDE4',
+            crimson: { DEFAULT: '#8B1A2E', dark: '#6E1424', light: '#A82236' },
+            navy:    { DEFAULT: '#1B2844', light: '#243560' },
+          },
+          fontFamily: {
+            display: ['"Playfair Display"', 'Georgia', 'serif'],
+            serif:   ['"Libre Baskerville"', 'Georgia', 'serif'],
+            sans:    ['Inter', 'system-ui', 'sans-serif'],
+          },
+          letterSpacing: {
+            widest2: '0.25em',
+          },
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+
+  <style>
+    body { background-color: #F2EDE4; font-family: 'Inter', sans-serif; }
+    .font-display { font-family: 'Playfair Display', Georgia, serif; }
+    .font-serif   { font-family: 'Libre Baskerville', Georgia, serif; }
+    .nav-link {
+      font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase;
+      font-weight: 500; color: #1B2844;
+      transition: color .2s;
+    }
+    .nav-link:hover { color: #8B1A2E; }
+    .btn-primary {
+      display: inline-block; background: #8B1A2E; color: #fff;
+      padding: 0.75rem 2rem; font-size: 0.72rem; letter-spacing: 0.15em;
+      text-transform: uppercase; font-weight: 600;
+      border: 2px solid #8B1A2E; cursor: pointer;
+      transition: background .2s, color .2s;
+    }
+    .btn-primary:hover { background: #6E1424; border-color: #6E1424; }
+    .btn-secondary {
+      display: inline-block; background: transparent; color: #1B2844;
+      padding: 0.75rem 2rem; font-size: 0.72rem; letter-spacing: 0.15em;
+      text-transform: uppercase; font-weight: 600;
+      border: 2px solid #1B2844; cursor: pointer;
+      transition: background .2s, color .2s;
+    }
+    .btn-secondary:hover { background: #1B2844; color: #fff; }
+    .section-label {
+      display: inline-block; font-size: 0.65rem; letter-spacing: 0.22em;
+      text-transform: uppercase; font-weight: 500; color: #8B1A2E;
+      border: 1px solid #8B1A2E; padding: 0.3rem 1rem; border-radius: 50px;
+    }
+    .card-classic {
+      background: #fff; border: 1px solid #E0D8CE;
+      padding: 2rem; position: relative; overflow: hidden;
+    }
+    .card-number {
+      position: absolute; top: 0.5rem; right: 1rem;
+      font-family: 'Playfair Display', serif; font-size: 4rem;
+      font-weight: 900; color: #E0D8CE; line-height: 1; user-select: none;
+    }
+    .badge-status-open     { background:#EDF7ED; color:#2E7D32; border:1px solid #C8E6C9; }
+    .badge-status-closed   { background:#FFF8E1; color:#F57F17; border:1px solid #FFE082; }
+    .badge-status-published{ background:#E8EAF6; color:#283593; border:1px solid #C5CAE9; }
+    .badge {
+      display:inline-block; font-size:0.65rem; letter-spacing:0.08em;
+      text-transform:uppercase; font-weight:600; padding:0.25rem 0.75rem;
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body class="flex flex-col min-h-screen">
+
+  <!-- ═══ NAVBAR ═══ -->
+  <header class="bg-white border-b border-stone-200 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8 flex items-center justify-between h-16">
+
+      <!-- Logo -->
+      <a href="/" class="flex items-center gap-3 flex-shrink-0">
+        <svg class="w-10 h-10" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="10" cy="28" r="7" stroke="#8B1A2E" stroke-width="1.5" fill="none"/>
+          <circle cx="30" cy="28" r="7" stroke="#8B1A2E" stroke-width="1.5" fill="none"/>
+          <polyline points="10,28 18,14 22,20 28,12 30,28" stroke="#8B1A2E" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+        </svg>
+        <div>
+          <div class="font-serif font-bold text-crimson text-xl leading-none tracking-wide">LA CLÁSICA</div>
+          <div class="font-display italic text-navy text-xs leading-none mt-0.5 tracking-wide">del miércoles</div>
+        </div>
+      </a>
+
+      <!-- Nav links (desktop) -->
+      <nav class="hidden md:flex items-center gap-8">
+        <a href="/" class="nav-link">Inicio</a>
+        {% if user.is_authenticated %}
+          <a href="/editions/" class="nav-link">Ediciones</a>
+          <a href="/clasificacion/" class="nav-link">Clasificaciones</a>
+          {% if user.is_staff %}
+            <a href="/dashboard/" class="nav-link">Panel</a>
+          {% endif %}
+          <a href="/accounts/profile/" class="nav-link">{{ user.full_name|default:user.username }}</a>
+          <form method="post" action="/accounts/logout/" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="nav-link bg-transparent border-none cursor-pointer">Salir</button>
+          </form>
+          {% if open_edition %}
+            {% if user_registered_open %}
+              <span class="btn-primary text-xs py-2 px-5 opacity-70 cursor-default" style="pointer-events:none;">✓ Inscrito</span>
+            {% else %}
+              <form method="post" action="/editions/{{ open_edition.pk }}/register/" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="btn-primary text-xs py-2 px-5">Únete</button>
+              </form>
+            {% endif %}
+          {% endif %}
+        {% else %}
+          <a href="/accounts/login/" class="nav-link">Entrar</a>
+          {% if open_edition %}
+            <a href="/accounts/register/" class="btn-primary text-xs py-2 px-5">Únete</a>
+          {% endif %}
+        {% endif %}
+      </nav>
+
+      <!-- Mobile toggle -->
+      <button id="nav-toggle" class="md:hidden p-2 text-navy">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Mobile menu -->
+    <div id="mobile-nav" class="hidden md:hidden bg-white border-t border-stone-100 px-6 py-4 space-y-3">
+      <a href="/" class="block nav-link py-2">Inicio</a>
+      {% if user.is_authenticated %}
+        <a href="/editions/" class="block nav-link py-2">Ediciones</a>
+        <a href="/clasificacion/" class="block nav-link py-2">Clasificaciones</a>
+        <a href="/accounts/profile/" class="block nav-link py-2">Mi perfil</a>
+        <form method="post" action="/accounts/logout/">{% csrf_token %}
+          <button class="nav-link block py-2">Salir</button>
+        </form>
+        {% if open_edition and not user_registered_open %}
+          <form method="post" action="/editions/{{ open_edition.pk }}/register/">
+            {% csrf_token %}
+            <button type="submit" class="btn-primary inline-block mt-2">Únete</button>
+          </form>
+        {% elif open_edition and user_registered_open %}
+          <span class="btn-primary inline-block mt-2 opacity-70">✓ Inscrito</span>
+        {% endif %}
+      {% else %}
+        <a href="/accounts/login/" class="block nav-link py-2">Entrar</a>
+        <a href="/accounts/register/" class="btn-primary inline-block mt-2">Únete</a>
+      {% endif %}
+    </div>
+  </header>
+
+  <!-- Messages -->
+  {% if messages %}
+  <div class="max-w-7xl mx-auto w-full px-6 mt-4 space-y-2">
+    {% for msg in messages %}
+    <div class="px-5 py-3 text-sm font-medium border
+      {% if msg.tags == 'success' %}bg-green-50 text-green-800 border-green-200
+      {% elif msg.tags == 'error' %}bg-red-50 text-red-800 border-red-200
+      {% else %}bg-blue-50 text-blue-800 border-blue-200{% endif %}">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Main -->
+  <main class="flex-1">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ═══ FOOTER ═══ -->
+  <footer class="bg-cream border-t border-stone-200 mt-20">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8 py-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+      <a href="/" class="flex items-center gap-3">
+        <svg class="w-8 h-8" viewBox="0 0 40 40" fill="none">
+          <circle cx="10" cy="28" r="7" stroke="#8B1A2E" stroke-width="1.5" fill="none"/>
+          <circle cx="30" cy="28" r="7" stroke="#8B1A2E" stroke-width="1.5" fill="none"/>
+          <polyline points="10,28 18,14 22,20 28,12 30,28" stroke="#8B1A2E" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+        </svg>
+        <div>
+          <div class="font-serif font-bold text-crimson text-base leading-none">LA CLÁSICA</div>
+          <div class="font-display italic text-navy text-xs mt-0.5">del miércoles</div>
+        </div>
+      </a>
+      <div class="text-right">
+        <p class="text-xs font-semibold uppercase tracking-widest text-navy">Cada miércoles</p>
+        <p class="text-xs text-stone-400 mt-1">Ciclismo clásico. Sin compromisos.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('nav-toggle').addEventListener('click', () => {
+      document.getElementById('mobile-nav').classList.toggle('hidden');
+    });
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

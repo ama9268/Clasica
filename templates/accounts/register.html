@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Registro — La Clásica{% endblock %}
+{% block content %}
+
+<div class="bg-navy py-16 px-6 text-center">
+  <span class="section-label" style="border-color:#fff5;color:#aaa;">Únete</span>
+  <h1 class="font-display font-black text-white mt-3 leading-none"
+      style="font-size:clamp(2rem,5vw,3.5rem);">CREAR CUENTA</h1>
+</div>
+
+<div class="max-w-lg mx-auto px-6 py-14">
+  <div class="card-classic">
+
+    {% if form.non_field_errors %}
+    <div class="mb-5 px-4 py-3 bg-red-50 text-red-700 text-sm border border-red-200">
+      {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-5">
+      {% csrf_token %}
+      {% for field in form %}
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-stone-500 mb-2">
+          {{ field.label }}{% if field.field.required %} <span class="text-crimson">*</span>{% endif %}
+        </label>
+        <input type="{{ field.field.widget.input_type|default:'text' }}"
+               name="{{ field.html_name }}" id="{{ field.auto_id }}"
+               value="{{ field.value|default:'' }}"
+               {% if field.field.required %}required{% endif %}
+               class="w-full border {% if field.errors %}border-red-400 bg-red-50{% else %}border-stone-200 bg-stone-50{% endif %} px-4 py-3 text-sm text-navy focus:outline-none focus:border-crimson focus:bg-white transition-colors">
+        {% for err in field.errors %}
+          <p class="text-red-500 text-xs mt-1">{{ err }}</p>
+        {% endfor %}
+        {% if field.help_text %}
+          <p class="text-stone-400 text-xs mt-1">{{ field.help_text }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+
+      <button type="submit" class="btn-primary w-full text-center mt-2">Crear cuenta</button>
+    </form>
+
+    <div class="border-t border-stone-100 mt-6 pt-5 text-center">
+      <p class="text-xs text-stone-400 uppercase tracking-widest">¿Ya tienes cuenta?</p>
+      <a href="/accounts/login/" class="btn-secondary inline-block mt-3 text-xs py-2 px-6">Entrar</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

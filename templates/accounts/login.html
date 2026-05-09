@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Entrar — La Clásica{% endblock %}
+{% block content %}
+
+<div class="bg-navy py-16 px-6 text-center">
+  <h1 class="font-display font-black text-white leading-none"
+      style="font-size:clamp(2rem,5vw,3.5rem);">ACCEDER</h1>
+</div>
+
+<div class="max-w-md mx-auto px-6 py-14">
+  <div class="card-classic">
+
+    {% if error %}
+    <div class="mb-6 px-4 py-3 bg-red-50 text-red-700 text-sm border border-red-200">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/accounts/login/{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}" class="space-y-5">
+      {% csrf_token %}
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-stone-500 mb-2">Usuario</label>
+        <input type="text" name="username" required autofocus
+               class="w-full border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-navy focus:outline-none focus:border-crimson focus:bg-white transition-colors">
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-stone-500 mb-2">Contraseña</label>
+        <input type="password" name="password" required
+               class="w-full border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-navy focus:outline-none focus:border-crimson focus:bg-white transition-colors">
+      </div>
+      <button type="submit" class="btn-primary w-full text-center mt-2">Entrar</button>
+    </form>
+
+    <div class="border-t border-stone-100 mt-6 pt-5 text-center">
+      <p class="text-xs text-stone-400 uppercase tracking-widest">¿Sin cuenta?</p>
+      <a href="/accounts/register/" class="btn-secondary inline-block mt-3 text-xs py-2 px-6">Únete ahora</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
