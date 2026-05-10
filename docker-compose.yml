@@ -5,7 +5,9 @@ services:
     env_file: .env
     environment:
       SERVICE: web
-      DJANGO_SETTINGS_MODULE: clasica_project.settings.production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.laclasica-web.loadbalancer.server.port=8000"
     volumes:
       - media_data:/app/media
       - static_data:/app/staticfiles
@@ -20,7 +22,6 @@ services:
     env_file: .env
     environment:
       SERVICE: worker
-      DJANGO_SETTINGS_MODULE: clasica_project.settings.production
     volumes:
       - media_data:/app/media
     networks:
