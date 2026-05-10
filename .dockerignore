@@ -1,0 +1,11 @@
+venv/
+.git/
+.gitignore
+*.pyc
+__pycache__/
+db.sqlite3
+.env
+staticfiles/
+media/
+.agent/
+CLAUDE.md
