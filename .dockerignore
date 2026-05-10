@@ -9,3 +9,6 @@ staticfiles/
 media/
 .agent/
 CLAUDE.md
+docker-compose.yml
+Dockerfile
+.dockerignore
