@@ -9,8 +9,6 @@ services:
     volumes:
       - media_data:/app/media
       - static_data:/app/staticfiles
-    ports:
-      - "8000:8000"
     networks:
       - dokploy-network
 
