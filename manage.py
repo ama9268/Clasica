@@ -6,7 +6,7 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'clasica_project.settings.development')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'clasica_project.settings.base')
     
     # Configuración de GDAL/PROJ para Windows (Evita el error de proj.db)
     if os.name == 'nt':

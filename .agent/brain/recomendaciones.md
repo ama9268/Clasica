@@ -21,4 +21,8 @@ Este archivo contiene un listado de recomendaciones de refactorización y arquit
 - [x] **Optimización de Docker (.dockerignore):** Crear archivo `.dockerignore` para excluir archivos innecesarios (venv, .git) y reducir el peso de la imagen de construcción.
 - [x] **Estabilidad de Imagen Base:** Cambiar a `python:3.12-slim` para asegurar compatibilidad con wheels precompilados (evitando compilación lenta en 3.13).
 - [x] **Sincronización de Rama `deploy`:** Mantener la rama `deploy` sincronizada con `main` únicamente cuando se desee realizar un despliegue a producción.
+- [x] **Resolución de Conflictos de Puerto:** Usar el puerto 8002 para evitar colisiones con otros servicios en el mismo VPS.
 - [ ] **Multi-stage Builds:** Implementar construcción multi-etapa en el Dockerfile para separar las dependencias de compilación del runtime final.
+- [ ] **Health Checks en Docker:** Añadir `healthcheck` en `docker-compose.yml` para que Traefik/Dokploy solo envíen tráfico si la app está lista.
+- [ ] **Endpoint de Salud en Django:** Crear `/api/health/` para validar conexiones críticas (DB, Redis) automáticamente.
+- [ ] **Optimización de Daphne Workers:** Configurar el número de workers/hilos en el entrypoint para maximizar el rendimiento del VPS.
