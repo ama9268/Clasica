@@ -5,14 +5,11 @@ services:
     env_file: .env
     environment:
       SERVICE: web
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.services.laclasica-web.loadbalancer.server.port=8000"
     volumes:
       - media_data:/app/media
       - static_data:/app/staticfiles
     ports:
-      - "8002:8000"
+      - "8010:8000"
     networks:
       - dokploy-network
 
