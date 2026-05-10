@@ -21,16 +21,10 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    strava_connected = serializers.SerializerMethodField()
-
     class Meta:
         model = UserProfile
-        fields = ["id", "username", "email", "full_name", "birth_date", "club",
-                  "photo", "strava_connected"]
-        read_only_fields = ["id", "username", "strava_connected"]
-
-    def get_strava_connected(self, obj) -> bool:
-        return obj.strava_connected
+        fields = ["id", "username", "email", "full_name", "birth_date", "club", "photo"]
+        read_only_fields = ["id", "username"]
 
 
 class EditionSerializer(serializers.ModelSerializer):
@@ -54,17 +48,21 @@ class ClassificationSerializer(serializers.ModelSerializer):
 
 class EditionDetailSerializer(EditionSerializer):
     classifications = serializers.SerializerMethodField()
-    route_geojson = GeometryField(source='route_geom', read_only=True)
+    route_geojson = GeometryField(source="route_geom", read_only=True)
     user_registered = serializers.SerializerMethodField()
 
     class Meta(EditionSerializer.Meta):
         fields = EditionSerializer.Meta.fields + ["route_geojson", "classifications", "user_registered"]
 
     def get_classifications(self, obj):
-        qs = Classification.objects.filter(
-            participation__edition=obj,
-            participation__strava_activity__is_valid=True,
-        ).select_related("participation__user").order_by("position_overall")
+        qs = (
+            Classification.objects.filter(
+                participation__edition=obj,
+                participation__activity__is_valid=True,
+            )
+            .select_related("participation__user")
+            .order_by("position_overall")
+        )
         return ClassificationSerializer(qs, many=True).data
 
     def get_user_registered(self, obj) -> bool:
@@ -88,9 +86,7 @@ class UserStatsSerializer(serializers.ModelSerializer):
         return self.context["participations"].count()
 
     def get_total_valid(self, obj) -> int:
-        return self.context["participations"].filter(
-            strava_activity__is_valid=True
-        ).count()
+        return self.context["participations"].filter(activity__is_valid=True).count()
 
     def get_participations(self, obj):
         result = []
@@ -105,10 +101,10 @@ class UserStatsSerializer(serializers.ModelSerializer):
                 "category": None,
             }
             try:
-                sa = p.strava_activity
-                entry["is_valid"] = sa.is_valid
-                if sa.is_valid:
-                    entry["time_formatted"] = sa.elapsed_formatted
+                a = p.activity
+                entry["is_valid"] = a.is_valid
+                if a.is_valid:
+                    entry["time_formatted"] = a.elapsed_formatted
             except Exception:
                 pass
             try:

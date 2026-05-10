@@ -133,11 +133,6 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
 }
 
-# Strava
-STRAVA_CLIENT_ID = env("STRAVA_CLIENT_ID", default="")
-STRAVA_CLIENT_SECRET = env("STRAVA_CLIENT_SECRET", default="")
-STRAVA_VERIFY_TOKEN = env("STRAVA_VERIFY_TOKEN", default="clasica_webhook_token")
-STRAVA_REDIRECT_URI = env("STRAVA_REDIRECT_URI", default="http://localhost:8000/accounts/strava/callback/")
 
 # GPS validation thresholds
 GPX_MATCH_THRESHOLD_METERS = 100

@@ -51,8 +51,8 @@
             </svg>
             Estás inscrito/a
           </div>
-          {% if user_participation.strava_activity %}
-            {% with act=user_participation.strava_activity %}
+          {% if user_participation.activity %}
+            {% with act=user_participation.activity %}
             <div class="mt-4 pt-4 border-t border-stone-100">
               <div class="text-xs text-stone-400 uppercase tracking-widest mb-1">Tu tiempo</div>
               <div class="text-2xl font-display font-bold {% if act.is_valid %}text-crimson{% else %}text-stone-400{% endif %}">
@@ -64,11 +64,8 @@
               </div>
             </div>
             {% endwith %}
-          {% elif user.strava_connected %}
-            <p class="text-xs text-stone-400 mt-3 font-light">Sube tu actividad en Strava. La importamos automáticamente.</p>
-          {% else %}
-            <a href="/accounts/strava/connect/" class="inline-block mt-3 text-xs text-crimson hover:underline">Conectar Strava →</a>
-          {% endif %}
+            {% endif %}
+            <p class="text-xs text-stone-400 mt-3 font-light">Utiliza la App oficial para registrar tu actividad durante la prueba.</p>
         {% else %}
           <form method="post" action="/editions/{{ edition.pk }}/register/">
             {% csrf_token %}
@@ -164,7 +161,7 @@
             <th class="text-center px-6 py-3">Pos.</th>
             <th class="text-center px-6 py-3 hidden sm:table-cell">Cat.</th>
             {% else %}
-            <th class="text-center px-6 py-3">Estado Strava</th>
+            <th class="text-center px-6 py-3">Actividad</th>
             {% endif %}
           </tr>
         </thead>
@@ -205,8 +202,8 @@
               </td>
             {% else %}
               <td class="px-6 py-4 text-center">
-                {% if p.strava_activity %}
-                  {% if p.strava_activity.is_valid %}
+                {% if p.activity %}
+                  {% if p.activity.is_valid %}
                     <span class="text-green-600 text-xs font-semibold">✓ Importado</span>
                   {% else %}
                     <span class="text-stone-400 text-xs">Actividad recibida</span>

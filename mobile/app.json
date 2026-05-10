@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "La Clásica",
+    "slug": "clasica",
+    "version": "1.0.0",
+    "scheme": "clasica",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1a2744"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "La Clásica necesita tu ubicación para el tracking en vivo durante la prueba."
+        }
+      ],
+      "expo-secure-store",
+      "expo-font"
+    ],
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a2744"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.clasica.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para el tracking en vivo durante la prueba."
+      }
+    }
+  }
+}

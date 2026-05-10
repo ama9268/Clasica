@@ -42,7 +42,7 @@ class EditionDetailView(LoginRequiredMixin, DetailView):
         # Todos los inscritos
         ctx["participations"] = (
             edition.participations
-            .select_related("user", "strava_activity", "classification")
+            .select_related("user", "activity", "classification")
             .order_by("registered_at")
         )
 
@@ -50,7 +50,7 @@ class EditionDetailView(LoginRequiredMixin, DetailView):
         ctx["classifications"] = (
             Classification.objects.filter(
                 participation__edition=edition,
-                participation__strava_activity__is_valid=True,
+                participation__activity__is_valid=True,
             )
             .select_related("participation__user")
             .order_by("position_overall")
@@ -61,7 +61,7 @@ class EditionDetailView(LoginRequiredMixin, DetailView):
         if self.request.user.is_authenticated:
             ctx["user_participation"] = (
                 Participation.objects.filter(user=self.request.user, edition=edition)
-                .select_related("strava_activity", "classification")
+                .select_related("activity", "classification")
                 .first()
             )
 
@@ -88,8 +88,8 @@ class GeneralClassificationView(LoginRequiredMixin, TemplateView):
             .annotate(
                 total_participations=Count("id"),
                 total_valid=Count(
-                    "strava_activity",
-                    filter=Q(strava_activity__is_valid=True)
+                    "activity",
+                    filter=Q(activity__is_valid=True)
                 ),
             )
             .order_by("-total_valid", "-total_participations")
@@ -108,7 +108,7 @@ class PublicProfileView(LoginRequiredMixin, TemplateView):
         ctx["profile"] = user
         ctx["participations"] = (
             Participation.objects.filter(user=user)
-            .select_related("edition", "strava_activity", "classification")
+            .select_related("edition", "activity", "classification")
             .order_by("-edition__date")
         )
         return ctx

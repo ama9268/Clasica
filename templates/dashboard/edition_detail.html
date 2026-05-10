@@ -77,14 +77,14 @@
               </td>
               <td class="px-6 py-4 text-stone-400 hidden sm:table-cell">{{ p.user.club|default:"—" }}</td>
               <td class="px-6 py-4 text-center font-mono font-semibold text-navy">
-                {% if p.strava_activity %}{{ p.strava_activity.elapsed_formatted }}{% else %}—{% endif %}
+                {% if p.activity %}{{ p.activity.elapsed_formatted }}{% else %}—{% endif %}
               </td>
               <td class="px-6 py-4 text-center text-stone-400 text-xs">
-                {% if p.strava_activity %}{{ p.strava_activity.validation_score|floatformat:0|default:"—" }}%{% else %}—{% endif %}
+                {% if p.activity %}{{ p.activity.validation_score|floatformat:0|default:"—" }}%{% else %}—{% endif %}
               </td>
               <td class="px-6 py-4 text-center">
-                {% if p.strava_activity %}
-                  {% if p.strava_activity.is_valid %}
+                {% if p.activity %}
+                  {% if p.activity.is_valid %}
                     <span class="text-green-600 font-bold">✓</span>
                   {% else %}
                     <span class="text-stone-300 font-bold">✗</span>
@@ -99,14 +99,14 @@
                 {% else %}—{% endif %}
               </td>
               <td class="px-6 py-4 text-center">
-                {% if p.strava_activity %}
-                <form method="post" action="/dashboard/activities/{{ p.strava_activity.pk }}/validate/">
+                {% if p.activity %}
+                <form method="post" action="/dashboard/activities/{{ p.activity.pk }}/validate/">
                   {% csrf_token %}
                   <button type="submit"
                           class="text-xs px-3 py-1.5 border uppercase tracking-widest font-semibold transition-colors
-                            {% if p.strava_activity.is_valid %}border-red-200 text-red-500 hover:bg-red-50
+                            {% if p.activity.is_valid %}border-red-200 text-red-500 hover:bg-red-50
                             {% else %}border-green-200 text-green-600 hover:bg-green-50{% endif %}">
-                    {% if p.strava_activity.is_valid %}Invalidar{% else %}Validar{% endif %}
+                    {% if p.activity.is_valid %}Invalidar{% else %}Validar{% endif %}
                   </button>
                 </form>
                 {% endif %}

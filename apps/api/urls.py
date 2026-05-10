@@ -10,8 +10,7 @@ urlpatterns = [
     path("editions/", views.EditionListAPIView.as_view(), name="api_editions"),
     path("editions/<int:pk>/", views.EditionDetailAPIView.as_view(), name="api_edition_detail"),
     path("editions/<int:pk>/register/", views.EditionRegisterAPIView.as_view(), name="api_edition_register"),
+    path("editions/<int:pk>/activity/", views.ActivityUploadAPIView.as_view(), name="api_activity_upload"),
     path("classifications/general/", views.GeneralClassificationAPIView.as_view(), name="api_general"),
     path("stats/user/<int:pk>/", views.UserStatsAPIView.as_view(), name="api_user_stats"),
-    path("strava/connect/", views.StravaConnectAPIView.as_view(), name="api_strava_connect"),
-    path("strava/disconnect/", views.StravaDisconnectAPIView.as_view(), name="api_strava_disconnect"),
 ]

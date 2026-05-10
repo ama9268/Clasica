@@ -9,7 +9,6 @@ urlpatterns = [
     path("editions/", include("apps.editions.urls")),
     path("dashboard/", include("apps.dashboard.urls")),
     path("api/v1/", include("apps.api.urls")),
-    path("webhooks/", include("apps.participations.webhook_urls")),
     path("", include("apps.editions.public_urls")),
 ]
 

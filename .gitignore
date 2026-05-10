@@ -37,3 +37,12 @@ Thumbs.db
 
 # Tailwind compilado (se genera en build)
 static/dist/
+
+# Expo
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+
+# Temporal / agentes
+scratch/
+.agent/

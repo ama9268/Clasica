@@ -1,5 +1,5 @@
-import logging
 import json
+import logging
 from django.contrib.gis.db import models
 from django.utils import timezone
 
@@ -30,22 +30,21 @@ class Participation(models.Model):
         return f"{self.user} — {self.edition}"
 
 
-class StravaActivity(models.Model):
+class Activity(models.Model):
     participation = models.OneToOneField(
         Participation,
         on_delete=models.CASCADE,
-        related_name="strava_activity",
+        related_name="activity",
     )
-    strava_activity_id = models.BigIntegerField(unique=True, db_index=True)
     elapsed_time_seconds = models.PositiveIntegerField(null=True, blank=True)
     track_geometry = models.LineStringField(srid=4326, null=True, blank=True)
     is_valid = models.BooleanField(default=False)
     validation_score = models.FloatField(null=True, blank=True)
-    imported_at = models.DateTimeField(default=timezone.now)
+    recorded_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        verbose_name = "Actividad Strava"
-        verbose_name_plural = "Actividades Strava"
+        verbose_name = "Actividad"
+        verbose_name_plural = "Actividades"
 
     def __str__(self) -> str:
         valid = "✓" if self.is_valid else "✗"

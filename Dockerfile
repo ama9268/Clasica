@@ -5,9 +5,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Dependencias del sistema (sin GDAL — usamos backend PostgreSQL estándar)
+# Dependencias del sistema — GDAL y GEOS requeridos por django.contrib.gis
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev gcc \
+    libgdal-dev gdal-bin libgeos-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

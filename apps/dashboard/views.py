@@ -2,12 +2,14 @@ import logging
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils.decorators import method_decorator
-from django.views.generic import ListView, DetailView, CreateView, View, TemplateView
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.urls import reverse_lazy
+from django.utils import timezone
+
 from apps.editions.models import Edition, RouteVariant
-from apps.participations.models import Participation, StravaActivity
+from apps.participations.models import Participation, Activity
 from apps.classifications.models import Classification, get_category
 from apps.editions.utils import parse_gpx_to_geometry_and_elevation
 from .forms import EditionForm, RouteVariantForm
@@ -56,9 +58,6 @@ class EditionCreateView(StaffRequiredMixin, CreateView):
         return response
 
 
-from django.views.generic import UpdateView, DeleteView
-from django.utils import timezone
-
 class EditionUpdateView(StaffRequiredMixin, UpdateView):
     model = Edition
     form_class = EditionForm
@@ -66,9 +65,7 @@ class EditionUpdateView(StaffRequiredMixin, UpdateView):
     success_url = reverse_lazy("dashboard:edition_list")
 
     def dispatch(self, request, *args, **kwargs):
-        edition = self.get_object()
-        # No permitir editar ediciones que ya han comenzado
-        if edition.has_started:
+        if self.get_object().has_started:
             messages.error(request, "No se puede editar una edición que ya ha comenzado.")
             return redirect("dashboard:edition_list")
         return super().dispatch(request, *args, **kwargs)
@@ -76,7 +73,7 @@ class EditionUpdateView(StaffRequiredMixin, UpdateView):
     def form_valid(self, form):
         response = super().form_valid(form)
         edition = self.object
-        if edition.route_gpx and 'route_gpx' in form.changed_data:
+        if edition.route_gpx and "route_gpx" in form.changed_data:
             geom, distance, ele_profile = parse_gpx_to_geometry_and_elevation(edition.route_gpx)
             if geom:
                 edition.route_geometry = geom
@@ -92,11 +89,12 @@ class EditionDeleteView(StaffRequiredMixin, DeleteView):
     success_url = reverse_lazy("dashboard:edition_list")
 
     def dispatch(self, request, *args, **kwargs):
-        edition = self.get_object()
-        if edition.has_started:
+        if self.get_object().has_started:
             messages.error(request, "No se puede eliminar una edición que ya ha comenzado.")
             return redirect("dashboard:edition_list")
         return super().dispatch(request, *args, **kwargs)
+
+
 class RouteVariantListView(StaffRequiredMixin, ListView):
     model = RouteVariant
     template_name = "dashboard/variant_list.html"
@@ -130,7 +128,7 @@ class EditionDetailView(StaffRequiredMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
         ctx["participations"] = (
             self.object.participations
-            .select_related("user", "strava_activity", "classification")
+            .select_related("user", "activity", "classification")
             .order_by("registered_at")
         )
         ctx["media_items"] = self.object.media.all()
@@ -150,7 +148,7 @@ def publish_results(request, pk):
 
 @staff_member_required
 def override_validation(request, pk):
-    activity = get_object_or_404(StravaActivity, pk=pk)
+    activity = get_object_or_404(Activity, pk=pk)
     if request.method == "POST":
         activity.is_valid = not activity.is_valid
         activity.save(update_fields=["is_valid"])
@@ -161,7 +159,7 @@ def override_validation(request, pk):
 
 def _recalculate_positions(edition: Edition):
     valid = list(
-        StravaActivity.objects.filter(
+        Activity.objects.filter(
             participation__edition=edition, is_valid=True
         ).select_related("participation__user")
         .order_by("elapsed_time_seconds")
@@ -170,10 +168,7 @@ def _recalculate_positions(edition: Edition):
     for pos, activity in enumerate(valid, start=1):
         participation = activity.participation
         user = participation.user
-        if not user.birth_date:
-            category = "open"
-        else:
-            category = get_category(user.birth_date, edition.date)
+        category = get_category(user.birth_date, edition.date) if user.birth_date else "open"
         category_counters[category] = category_counters.get(category, 0) + 1
         Classification.objects.update_or_create(
             participation=participation,
@@ -188,8 +183,8 @@ def _recalculate_positions(edition: Edition):
 
 def _sync_classification(participation: Participation):
     try:
-        activity = participation.strava_activity
-    except StravaActivity.DoesNotExist:
+        activity = participation.activity
+    except Activity.DoesNotExist:
         Classification.objects.filter(participation=participation).delete()
         return
     if not activity.is_valid:
@@ -210,22 +205,16 @@ def media_add(request, pk):
         order = int(request.POST.get("order", 0))
         if media_type == EditionMedia.TYPE_PHOTO and request.FILES.get("photo"):
             EditionMedia.objects.create(
-                edition=edition,
-                media_type=EditionMedia.TYPE_PHOTO,
-                photo=request.FILES["photo"],
-                caption=caption,
-                order=order,
+                edition=edition, media_type=EditionMedia.TYPE_PHOTO,
+                photo=request.FILES["photo"], caption=caption, order=order,
             )
             messages.success(request, "Foto añadida.")
         elif media_type == EditionMedia.TYPE_VIDEO:
             video_url = request.POST.get("video_url", "")
             if video_url:
                 EditionMedia.objects.create(
-                    edition=edition,
-                    media_type=EditionMedia.TYPE_VIDEO,
-                    video_url=video_url,
-                    caption=caption,
-                    order=order,
+                    edition=edition, media_type=EditionMedia.TYPE_VIDEO,
+                    video_url=video_url, caption=caption, order=order,
                 )
                 messages.success(request, "Vídeo añadido.")
             else:

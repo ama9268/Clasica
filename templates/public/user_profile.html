@@ -34,7 +34,7 @@
     <div class="card-classic text-center">
       <div class="font-display font-black text-4xl text-crimson">
         {% with ns=namespace %}
-          {% for p in participations %}{% if p.strava_activity.is_valid %}{% endif %}{% endfor %}
+          {% for p in participations %}{% if p.activity.is_valid %}{% endif %}{% endfor %}
         {% endwith %}
         {{ participations|length }}
       </div>
@@ -70,7 +70,7 @@
           </td>
           <td class="px-6 py-4 text-stone-400 hidden sm:table-cell">{{ p.edition.date|date:"d/m/Y" }}</td>
           <td class="px-6 py-4 text-center font-mono font-semibold text-navy">
-            {% if p.strava_activity %}{{ p.strava_activity.elapsed_formatted }}{% else %}—{% endif %}
+            {% if p.activity %}{{ p.activity.elapsed_formatted }}{% else %}—{% endif %}
           </td>
           <td class="px-6 py-4 text-center text-stone-500 hidden sm:table-cell">
             {% if p.classification %}
@@ -85,8 +85,8 @@
             {% else %}—{% endif %}
           </td>
           <td class="px-6 py-4 text-center">
-            {% if p.strava_activity %}
-              {% if p.strava_activity.is_valid %}
+            {% if p.activity %}
+              {% if p.activity.is_valid %}
                 <span class="text-green-600 font-bold">✓</span>
               {% else %}
                 <span class="text-stone-300">✗</span>

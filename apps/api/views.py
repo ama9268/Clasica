@@ -1,12 +1,13 @@
 import logging
-from django.contrib.auth import authenticate
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
+
 from apps.accounts.models import UserProfile
 from apps.editions.models import Edition
-from apps.participations.models import Participation
+from apps.participations.models import Participation, Activity
 from apps.classifications.models import Classification
 from .serializers import (
     UserSerializer, UserProfileSerializer, EditionSerializer,
@@ -45,7 +46,7 @@ class EditionListAPIView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request):
-        editions = Edition.objects.all()
+        editions = Edition.objects.all().order_by("-date")
         return Response(EditionSerializer(editions, many=True).data)
 
 
@@ -53,10 +54,7 @@ class EditionDetailAPIView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request, pk):
-        try:
-            edition = Edition.objects.get(pk=pk)
-        except Edition.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+        edition = get_object_or_404(Edition, pk=pk)
         return Response(EditionDetailSerializer(edition, context={"request": request}).data)
 
 
@@ -64,14 +62,69 @@ class EditionRegisterAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        try:
-            edition = Edition.objects.get(pk=pk)
-        except Edition.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+        edition = get_object_or_404(Edition, pk=pk)
         if not edition.is_registration_open:
             return Response({"detail": "Inscripciones cerradas."}, status=status.HTTP_400_BAD_REQUEST)
         _, created = Participation.objects.get_or_create(user=request.user, edition=edition)
-        return Response({"registered": True, "created": created}, status=status.HTTP_200_OK)
+        return Response({"registered": True, "created": created})
+
+
+class ActivityUploadAPIView(APIView):
+    """
+    La app móvil envía el track GPS al finalizar la prueba.
+    POST { track_geojson: LineString GeoJSON, elapsed_time_seconds: int }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from django.contrib.gis.geos import LineString, GEOSException
+        from apps.participations.tasks import validate_track
+
+        edition = get_object_or_404(Edition, pk=pk)
+
+        try:
+            participation = Participation.objects.get(user=request.user, edition=edition)
+        except Participation.DoesNotExist:
+            return Response(
+                {"detail": "No estás inscrito en esta edición."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        elapsed = request.data.get("elapsed_time_seconds")
+        track_geojson = request.data.get("track_geojson")
+
+        if not elapsed or not track_geojson:
+            return Response(
+                {"detail": "elapsed_time_seconds y track_geojson son obligatorios."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            coords = track_geojson["coordinates"]
+            track_geometry = LineString(coords, srid=4326)
+        except (KeyError, TypeError, GEOSException):
+            return Response({"detail": "track_geojson inválido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        score, is_valid = 0.0, False
+        if edition.route_geometry:
+            score, is_valid = validate_track(edition.route_geometry, track_geometry)
+
+        activity, _ = Activity.objects.update_or_create(
+            participation=participation,
+            defaults={
+                "elapsed_time_seconds": int(elapsed),
+                "track_geometry": track_geometry,
+                "is_valid": is_valid,
+                "validation_score": score,
+            },
+        )
+
+        return Response({
+            "is_valid": is_valid,
+            "validation_score": round(score, 3),
+            "elapsed_time_seconds": activity.elapsed_time_seconds,
+            "elapsed_formatted": activity.elapsed_formatted,
+        })
 
 
 class GeneralClassificationAPIView(APIView):
@@ -80,10 +133,12 @@ class GeneralClassificationAPIView(APIView):
     def get(self, request):
         from django.db.models import Count, Q
         stats = (
-            Participation.objects.values("user__pk", "user__full_name", "user__username", "user__club")
+            Participation.objects.values(
+                "user__pk", "user__full_name", "user__username", "user__club"
+            )
             .annotate(
                 total=Count("id"),
-                valid=Count("strava_activity", filter=Q(strava_activity__is_valid=True)),
+                valid=Count("activity", filter=Q(activity__is_valid=True)),
             )
             .order_by("-valid", "-total")
         )
@@ -94,43 +149,10 @@ class UserStatsAPIView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request, pk):
-        try:
-            user = UserProfile.objects.get(pk=pk)
-        except UserProfile.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+        user = get_object_or_404(UserProfile, pk=pk)
         participations = (
             Participation.objects.filter(user=user)
-            .select_related("edition", "strava_activity", "classification")
+            .select_related("edition", "activity", "classification")
             .order_by("-edition__date")
         )
         return Response(UserStatsSerializer(user, context={"participations": participations}).data)
-
-
-class StravaConnectAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        from django.conf import settings
-        from urllib.parse import urlencode
-        params = {
-            "client_id": settings.STRAVA_CLIENT_ID,
-            "redirect_uri": settings.STRAVA_REDIRECT_URI,
-            "response_type": "code",
-            "scope": "activity:read_all",
-        }
-        url = "https://www.strava.com/oauth/authorize?" + urlencode(params)
-        return Response({"authorization_url": url})
-
-
-class StravaDisconnectAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        user = request.user
-        user.strava_athlete_id = None
-        user.strava_access_token = ""
-        user.strava_refresh_token = ""
-        user.strava_token_expires_at = None
-        user.save(update_fields=["strava_athlete_id", "strava_access_token",
-                                  "strava_refresh_token", "strava_token_expires_at"])
-        return Response({"disconnected": True})
