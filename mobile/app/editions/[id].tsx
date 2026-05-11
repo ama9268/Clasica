@@ -112,10 +112,10 @@ export default function EditionDetailScreen() {
                   </Text>
                 </View>
               )}
-              {edition.weather.lluvia !== null && edition.weather.lluvia > 0 && (
+              {edition.weather.lluvia !== null && (
                 <View style={s.weatherItem}>
                   <Ionicons name="water-outline" size={14} color="#1a2744" />
-                  <Text style={s.weatherText}>{edition.weather.lluvia}%</Text>
+                  <Text style={s.weatherText}>Lluvia: {edition.weather.lluvia}%</Text>
                 </View>
               )}
             </View>
