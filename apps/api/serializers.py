@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework_gis.fields import GeometryField
 from apps.accounts.models import UserProfile
-from apps.editions.models import Edition
+from apps.editions.models import Edition, EditionMedia, RouteVariant
 from apps.classifications.models import Classification
 from apps.editions.services.aemet import get_weather_forecast_for_edition
 
@@ -24,8 +24,14 @@ class UserSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ["id", "username", "email", "full_name", "birth_date", "club", "photo"]
-        read_only_fields = ["id", "username"]
+        fields = ["id", "username", "email", "full_name", "birth_date", "club", "photo", "is_staff"]
+        read_only_fields = ["id", "username", "is_staff"]
+
+
+class RouteVariantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RouteVariant
+        fields = ["id", "name", "description", "route_distance_km"]
 
 
 class EditionSerializer(serializers.ModelSerializer):
@@ -33,6 +39,19 @@ class EditionSerializer(serializers.ModelSerializer):
         model = Edition
         fields = ["id", "date", "name", "start_time", "route_distance_km", "status",
                   "is_registration_open", "results_published"]
+
+
+class EditionWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Edition
+        fields = ["date", "name", "start_time", "route_variant", "route_gpx", "status"]
+
+
+class EditionMediaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EditionMedia
+        fields = ["id", "edition", "media_type", "photo", "video_url", "caption", "order", "uploaded_at"]
+        read_only_fields = ["id", "uploaded_at"]
 
 
 class ClassificationSerializer(serializers.ModelSerializer):
@@ -52,9 +71,10 @@ class EditionDetailSerializer(EditionSerializer):
     route_geojson = GeometryField(source="route_geom", read_only=True)
     user_registered = serializers.SerializerMethodField()
     weather = serializers.SerializerMethodField()
+    media = EditionMediaSerializer(many=True, read_only=True)
 
     class Meta(EditionSerializer.Meta):
-        fields = EditionSerializer.Meta.fields + ["route_geojson", "classifications", "user_registered", "weather"]
+        fields = EditionSerializer.Meta.fields + ["route_geojson", "classifications", "user_registered", "weather", "media"]
 
     def get_classifications(self, obj):
         qs = (

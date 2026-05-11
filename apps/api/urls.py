@@ -11,6 +11,9 @@ urlpatterns = [
     path("editions/<int:pk>/", views.EditionDetailAPIView.as_view(), name="api_edition_detail"),
     path("editions/<int:pk>/register/", views.EditionRegisterAPIView.as_view(), name="api_edition_register"),
     path("editions/<int:pk>/activity/", views.ActivityUploadAPIView.as_view(), name="api_activity_upload"),
+    path("editions/<int:pk>/media/", views.EditionMediaListCreateAPIView.as_view(), name="edition-media-list"),
+    path("media/<int:pk>/", views.EditionMediaDeleteAPIView.as_view(), name="media-detail"),
+    path("route-variants/", views.RouteVariantListAPIView.as_view(), name="route-variant-list"),
     path("classifications/general/", views.GeneralClassificationAPIView.as_view(), name="api_general"),
     path("stats/user/<int:pk>/", views.UserStatsAPIView.as_view(), name="api_user_stats"),
 ]

@@ -1,6 +1,6 @@
 import logging
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAuthenticatedOrReadOnly, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
@@ -11,8 +11,8 @@ from apps.participations.models import Participation, Activity
 from apps.classifications.models import Classification
 from apps.classifications.utils import recalculate_positions
 from .serializers import (
-    UserSerializer, UserProfileSerializer, EditionSerializer,
     EditionDetailSerializer, ClassificationSerializer, UserStatsSerializer,
+    EditionWriteSerializer, EditionMediaSerializer, RouteVariantSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,6 +50,23 @@ class EditionListAPIView(APIView):
         editions = Edition.objects.all().order_by("-date")
         return Response(EditionSerializer(editions, many=True).data)
 
+    def post(self, request):
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        serializer = EditionWriteSerializer(data=request.data)
+        if serializer.is_valid():
+            edition = serializer.save()
+            if edition.route_gpx:
+                from apps.editions.utils import parse_gpx_to_geometry_and_elevation
+                geom, distance, ele_profile = parse_gpx_to_geometry_and_elevation(edition.route_gpx)
+                if geom:
+                    edition.route_geometry = geom
+                    edition.route_distance_km = distance
+                    edition.elevation_profile = ele_profile
+                    edition.save(update_fields=["route_geometry", "route_distance_km", "elevation_profile"])
+            return Response(EditionDetailSerializer(edition).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class EditionDetailAPIView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
@@ -57,6 +74,33 @@ class EditionDetailAPIView(APIView):
     def get(self, request, pk):
         edition = get_object_or_404(Edition, pk=pk)
         return Response(EditionDetailSerializer(edition, context={"request": request}).data)
+
+    def patch(self, request, pk):
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        edition = get_object_or_404(Edition, pk=pk)
+        serializer = EditionWriteSerializer(edition, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            if "route_gpx" in request.FILES:
+                from apps.editions.utils import parse_gpx_to_geometry_and_elevation
+                geom, distance, ele_profile = parse_gpx_to_geometry_and_elevation(edition.route_gpx)
+                if geom:
+                    edition.route_geometry = geom
+                    edition.route_distance_km = distance
+                    edition.elevation_profile = ele_profile
+                    edition.save(update_fields=["route_geometry", "route_distance_km", "elevation_profile"])
+            return Response(EditionDetailSerializer(edition).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        edition = get_object_or_404(Edition, pk=pk)
+        if edition.has_started:
+            return Response({"detail": "No se puede eliminar una edición que ya ha comenzado."}, status=status.HTTP_400_BAD_REQUEST)
+        edition.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class EditionRegisterAPIView(APIView):
@@ -163,3 +207,45 @@ class UserStatsAPIView(APIView):
             .order_by("-edition__date")
         )
         return Response(UserStatsSerializer(user, context={"participations": participations}).data)
+
+
+class EditionMediaListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get(self, request, pk):
+        edition = get_object_or_404(Edition, pk=pk)
+        media = edition.media.all()
+        return Response(EditionMediaSerializer(media, many=True).data)
+
+    def post(self, request, pk):
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        edition = get_object_or_404(Edition, pk=pk)
+        data = request.data.copy()
+        data['edition'] = edition.pk
+        serializer = EditionMediaSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EditionMediaDeleteAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        from apps.editions.models import EditionMedia
+        media = get_object_or_404(EditionMedia, pk=pk)
+        media.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RouteVariantListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.editions.models import RouteVariant
+        variants = RouteVariant.objects.all()
+        return Response(RouteVariantSerializer(variants, many=True).data)

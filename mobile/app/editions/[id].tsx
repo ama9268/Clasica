@@ -8,6 +8,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getEdition, registerEdition } from '@/api/editions';
 import type { EditionDetail, Classification } from '@/types';
+import { WindOverlay } from '@/components/WindOverlay';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
@@ -88,6 +89,13 @@ export default function EditionDetailScreen() {
           <MapView style={s.map} region={region} scrollEnabled={false}>
             <Polyline coordinates={coords} strokeColor="#8b1a1a" strokeWidth={3} />
           </MapView>
+          {edition.weather?.viento_dir && (
+            <WindOverlay 
+              direction={edition.weather.viento_dir} 
+              speed={edition.weather.viento_vel || 5} 
+              height={220}
+            />
+          )}
           {edition.weather && (
             <View style={s.weatherOverlay}>
               {edition.weather.temperatura !== null && (

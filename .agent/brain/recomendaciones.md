@@ -43,3 +43,4 @@ Este archivo contiene un listado de recomendaciones de refactorización y arquit
 - [ ] **Logging Estructurado de Meteorología**: Mejorar el logging en `aemet.py` para registrar campos que devuelven formatos inesperados (como listas), facilitando el debug proactivo.
 - [x] **Gestión de Túneles Expo:** Asegurar la instalación local de `@expo/ngrok` para evitar errores de tipo `TypeError` al iniciar túneles de desarrollo.
 - [ ] **Rotación de Authtokens de Ngrok:** Implementar una política de actualización de tokens de ngrok para evitar el error `session closed` o `remote gone away` por límites de uso.
+- [ ] **Iconos Dinámicos de Clima:** Sustituir los iconos estáticos por iconos que reflejen el estado real del cielo (sol, nubes, lluvia) basándose en la descripción detallada que devuelve AEMET.
