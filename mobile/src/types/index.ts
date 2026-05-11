@@ -12,6 +12,7 @@ export interface Edition {
   id: number;
   date: string;
   name: string;
+  start_time: string;  // "HH:MM:SS"
   route_distance_km: number | null;
   status: 'open' | 'closed' | 'results_published';
   is_registration_open: boolean;
@@ -71,6 +72,14 @@ export interface ActivityUploadResult {
   validation_score: number;
   elapsed_time_seconds: number;
   elapsed_formatted: string;
+  average_moving_speed: number | null;
+}
+
+export interface RutaPoint {
+  lon: number;
+  lat: number;
+  speed_kmh: number;
+  timestamp: number;
 }
 
 export interface TrackingPosition {

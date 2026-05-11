@@ -9,6 +9,7 @@ from apps.accounts.models import UserProfile
 from apps.editions.models import Edition
 from apps.participations.models import Participation, Activity
 from apps.classifications.models import Classification
+from apps.classifications.utils import recalculate_positions
 from .serializers import (
     UserSerializer, UserProfileSerializer, EditionSerializer,
     EditionDetailSerializer, ClassificationSerializer, UserStatsSerializer,
@@ -92,6 +93,7 @@ class ActivityUploadAPIView(APIView):
 
         elapsed = request.data.get("elapsed_time_seconds")
         track_geojson = request.data.get("track_geojson")
+        avg_speed = request.data.get("average_moving_speed")
 
         if not elapsed or not track_geojson:
             return Response(
@@ -116,14 +118,19 @@ class ActivityUploadAPIView(APIView):
                 "track_geometry": track_geometry,
                 "is_valid": is_valid,
                 "validation_score": score,
+                "average_moving_speed": float(avg_speed) if avg_speed is not None else None,
             },
         )
+
+        if is_valid:
+            recalculate_positions(edition)
 
         return Response({
             "is_valid": is_valid,
             "validation_score": round(score, 3),
             "elapsed_time_seconds": activity.elapsed_time_seconds,
             "elapsed_formatted": activity.elapsed_formatted,
+            "average_moving_speed": activity.average_moving_speed,
         })
 
 

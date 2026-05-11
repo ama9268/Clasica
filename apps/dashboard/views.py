@@ -6,11 +6,14 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView, D
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.urls import reverse_lazy
+from datetime import timedelta
 from django.utils import timezone
+from django.db.models import Case, When, Value, F, DurationField
 
 from apps.editions.models import Edition, RouteVariant
 from apps.participations.models import Participation, Activity
 from apps.classifications.models import Classification, get_category
+from apps.classifications.utils import recalculate_positions
 from apps.editions.utils import parse_gpx_to_geometry_and_elevation
 from .forms import EditionForm, RouteVariantForm
 
@@ -28,7 +31,14 @@ class DashboardHomeView(StaffRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["editions"] = Edition.objects.all()[:10]
+        today = timezone.now().date()
+        ctx["editions"] = Edition.objects.annotate(
+            priority=Case(
+                When(date__gte=today, then=F('date') - today),
+                default=today - F('date') + timedelta(days=36500),
+                output_field=DurationField()
+            )
+        ).order_by("priority")[:10]
         ctx["total_users"] = Participation.objects.values("user").distinct().count()
         return ctx
 
@@ -37,6 +47,16 @@ class EditionListView(StaffRequiredMixin, ListView):
     model = Edition
     template_name = "dashboard/edition_list.html"
     context_object_name = "editions"
+
+    def get_queryset(self):
+        today = timezone.now().date()
+        return super().get_queryset().annotate(
+            priority=Case(
+                When(date__gte=today, then=F('date') - today),
+                default=today - F('date') + timedelta(days=36500),
+                output_field=DurationField()
+            )
+        ).order_by("priority")
 
 
 class EditionCreateView(StaffRequiredMixin, CreateView):
@@ -158,27 +178,7 @@ def override_validation(request, pk):
 
 
 def _recalculate_positions(edition: Edition):
-    valid = list(
-        Activity.objects.filter(
-            participation__edition=edition, is_valid=True
-        ).select_related("participation__user")
-        .order_by("elapsed_time_seconds")
-    )
-    category_counters: dict[str, int] = {}
-    for pos, activity in enumerate(valid, start=1):
-        participation = activity.participation
-        user = participation.user
-        category = get_category(user.birth_date, edition.date) if user.birth_date else "open"
-        category_counters[category] = category_counters.get(category, 0) + 1
-        Classification.objects.update_or_create(
-            participation=participation,
-            defaults={
-                "time_seconds": activity.elapsed_time_seconds,
-                "category": category,
-                "position_overall": pos,
-                "position_category": category_counters[category],
-            },
-        )
+    recalculate_positions(edition)
 
 
 def _sync_classification(participation: Participation):

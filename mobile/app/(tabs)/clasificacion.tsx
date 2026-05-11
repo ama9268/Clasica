@@ -70,7 +70,7 @@ export default function ClasificacionScreen() {
           </View>
           <Text style={[s.time, { flex: 1 }]}>{item.time_formatted}</Text>
           <View style={[s.catBadge, { backgroundColor: CATEGORY_COLOR[item.category] ?? '#6b7280' }]}>
-            <Text style={s.catText}>{item.category.toUpperCase()}</Text>
+            <Text style={s.catText}>{item.category?.toUpperCase() ?? ''}</Text>
           </View>
         </View>
       )}

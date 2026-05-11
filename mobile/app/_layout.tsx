@@ -1,4 +1,4 @@
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -30,7 +30,21 @@ function Guard() {
     );
   }
 
-  return <Slot />;
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: '#1a2744' },
+        headerTintColor: '#f5f0e8',
+        headerTitleStyle: { fontWeight: '700' },
+        headerBackTitle: 'Volver',
+      }}
+    >
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="editions/[id]" options={{ title: 'Edición' }} />
+      <Stack.Screen name="live/[id]" options={{ title: 'En Vivo' }} />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {

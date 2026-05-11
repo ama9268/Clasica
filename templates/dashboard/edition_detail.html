@@ -21,17 +21,6 @@
         <a href="/dashboard/editions/{{ object.pk }}/edit/" class="btn-secondary text-xs py-2 px-4">
           Editar
         </a>
-        <a href="/dashboard/editions/{{ object.pk }}/delete/" class="btn-secondary text-xs py-2 px-4 text-red-600 border-red-200 hover:bg-red-50">
-          Eliminar
-        </a>
-        <form method="post" action="/dashboard/editions/{{ object.pk }}/publish/">
-          {% csrf_token %}
-          <button type="submit"
-                  onclick="return confirm('¿Calcular posiciones y publicar resultados?')"
-                  class="btn-primary text-xs py-2 px-4">
-            Publicar resultados
-          </button>
-        </form>
         {% endif %}
         <a href="/live/{{ object.pk }}/" target="_blank"
            class="btn-secondary text-xs py-2 px-4" style="border-color:#fff5;color:#ccc;">

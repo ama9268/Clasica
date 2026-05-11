@@ -43,8 +43,12 @@
         <label class="block text-xs font-bold uppercase tracking-widest text-navy mb-2">1. Seleccionar Variante Maestra</label>
         <select name="route_variant" class="w-full border border-stone-200 bg-white px-4 py-3 text-sm text-navy focus:outline-none focus:border-crimson transition-colors mb-4">
           <option value="">-- Ninguna (Usar GPX personalizado) --</option>
-          {% for choice in form.route_variant.field.queryset %}
-            <option value="{{ choice.pk }}" {% if form.route_variant.value == choice.pk %}selected{% endif %}>{{ choice.name }} ({{ choice.route_distance_km }} km)</option>
+          {% for pk, label in form.route_variant.field.choices %}
+            {% if pk %}
+              <option value="{{ pk }}" {% if form.route_variant.value|stringformat:"s" == pk|stringformat:"s" %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endif %}
           {% endfor %}
         </select>
 

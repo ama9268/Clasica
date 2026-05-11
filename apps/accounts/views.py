@@ -47,6 +47,9 @@ class LogoutView(View):
         return redirect("home")
 
 
+from django.contrib.auth.views import PasswordChangeView, PasswordChangeDoneView
+
+
 class ProfileView(LoginRequiredMixin, UpdateView):
     model = UserProfile
     form_class = ProfileForm
@@ -55,3 +58,12 @@ class ProfileView(LoginRequiredMixin, UpdateView):
 
     def get_object(self):
         return self.request.user
+
+
+class CustomPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
+    template_name = "accounts/password_change.html"
+    success_url = reverse_lazy("accounts:password_change_done")
+
+
+class CustomPasswordChangeDoneView(LoginRequiredMixin, PasswordChangeDoneView):
+    template_name = "accounts/password_change_done.html"
