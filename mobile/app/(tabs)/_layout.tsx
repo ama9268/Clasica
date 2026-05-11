@@ -30,6 +30,10 @@ export default function TabLayout() {
         options={{ title: 'CLASIFICACIÓN', tabBarIcon: icon('podium-outline') }}
       />
       <Tabs.Screen
+        name="ruta"
+        options={{ title: 'RUTA', tabBarIcon: icon('bicycle-outline') }}
+      />
+      <Tabs.Screen
         name="perfil"
         options={{ title: 'PERFIL', tabBarIcon: icon('person-outline') }}
       />

@@ -82,7 +82,7 @@ class Edition(models.Model):
     class Meta:
         verbose_name = "Edición"
         verbose_name_plural = "Ediciones"
-        ordering = ["-date"]
+        ordering = ["-date", "-id"]
 
     def __str__(self) -> str:
         return f"{self.name} ({self.date})"

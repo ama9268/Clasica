@@ -17,7 +17,11 @@ export async function registerEdition(id: number): Promise<void> {
 
 export async function uploadActivity(
   editionId: number,
-  payload: { track_geojson: GeoJSONLineString; elapsed_time_seconds: number }
+  payload: {
+    track_geojson: GeoJSONLineString;
+    elapsed_time_seconds: number;
+    average_moving_speed: number | null;
+  }
 ): Promise<ActivityUploadResult> {
   const { data } = await client.post<ActivityUploadResult>(
     `/editions/${editionId}/activity/`,

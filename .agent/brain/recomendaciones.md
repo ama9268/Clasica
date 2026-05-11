@@ -26,3 +26,15 @@ Este archivo contiene un listado de recomendaciones de refactorización y arquit
 - [ ] **Health Checks en Docker:** Añadir `healthcheck` en `docker-compose.yml` para que Traefik/Dokploy solo envíen tráfico si la app está lista.
 - [ ] **Endpoint de Salud en Django:** Crear `/api/health/` para validar conexiones críticas (DB, Redis) automáticamente.
 - [ ] **Optimización de Daphne Workers:** Configurar el número de workers/hilos en el entrypoint para maximizar el rendimiento del VPS.
+- [ ] **Validación de Fortaleza de Contraseña**: Implementar un medidor de fortaleza de contraseña en tiempo real en el frontend para mejorar la seguridad del usuario.
+- [ ] **Autenticación de Dos Factores (2FA)**: Añadir soporte para 2FA para proteger las cuentas de usuario contra accesos no autorizados.
+- [ ] **Notificaciones de Seguridad**: Configurar el envío automático de correos electrónicos cuando se realicen cambios sensibles en la cuenta, como el cambio de contraseña.
+- [ ] **Verificación de Email en Cambios**: Implementar un proceso de re-verificación de correo electrónico si el usuario decide cambiar su dirección actual.
+- [ ] **Caché de Fragmentos**: Cachear fragmentos de plantillas estáticas (como el footer o menús) utilizando el sistema de caché de Django para mejorar el tiempo de respuesta.
+- [ ] **Minificación y Compresión de Assets**: Configurar `django-compressor` para unificar y minificar archivos CSS y JS en producción, reduciendo el peso de la página.
+- [ ] **Optimización de Imágenes con WebP**: Implementar la generación automática de versiones WebP para las imágenes subidas por los usuarios, optimizando el ancho de banda.
+- [ ] **Búsqueda Indexada en Dashboard**: Integrar `django-haystack` con un backend ligero si el volumen de datos crece, permitiendo búsquedas instantáneas y profesionales.
+- [ ] **Detección Automática de Cimas**: Procesar el GPX para identificar automáticamente los puertos o cimas de la ruta y mostrarlos como hitos en el detalle de la edición.
+- [ ] **Selector de Rutas Avanzado**: Implementar `Tom Select` o `Select2` en el formulario de edición para permitir búsquedas rápidas en el desplegable de variantes, especialmente útil ahora que incluye descripciones largas.
+- [ ] **Caché de Ordenación**: Implementar caché de fragmentos o de QuerySet para la lógica de ordenación por proximidad, reduciendo la carga en base de datos en páginas de alto tráfico.
+- [ ] **Badges de Estado en Listados**: Añadir indicadores visuales (colores) en las listas de ediciones para distinguir rápidamente entre ediciones futuras, pasadas y en curso.

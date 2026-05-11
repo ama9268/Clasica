@@ -11,6 +11,11 @@ class RouteVariantForm(forms.ModelForm):
 class EditionForm(forms.ModelForm):
     date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'route_variant' in self.fields:
+            self.fields['route_variant'].label_from_instance = lambda obj: f"{obj.name} — {obj.description[:100]}..." if obj.description else obj.name
+
     class Meta:
         model = Edition
         fields = ["date", "start_time", "name", "route_variant", "route_gpx", "status"]

@@ -40,6 +40,7 @@ class Activity(models.Model):
     track_geometry = models.LineStringField(srid=4326, null=True, blank=True)
     is_valid = models.BooleanField(default=False)
     validation_score = models.FloatField(null=True, blank=True)
+    average_moving_speed = models.FloatField(null=True, blank=True)  # km/h, speed > 0 points only
     recorded_at = models.DateTimeField(default=timezone.now)
 
     class Meta:

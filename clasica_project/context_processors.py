@@ -3,7 +3,7 @@ from apps.editions.models import Edition
 
 def open_edition(request):
     """Inyecta la edición abierta (si existe) en todos los templates."""
-    edition = Edition.objects.filter(status=Edition.STATUS_OPEN).first()
+    edition = Edition.objects.filter(status=Edition.STATUS_OPEN).order_by("date").first()
     user_registered = False
     if edition and request.user.is_authenticated:
         user_registered = edition.participations.filter(user=request.user).exists()

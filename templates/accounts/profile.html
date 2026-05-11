@@ -39,6 +39,12 @@
       </div>
       {% endfor %}
       <button type="submit" class="btn-primary">Guardar cambios</button>
+      
+      <div class="pt-4 border-t border-stone-100">
+        <a href="{% url 'accounts:password_change' %}" class="text-xs uppercase tracking-widest text-crimson font-bold hover:underline">
+          Cambiar contraseña
+        </a>
+      </div>
     </form>
   </div>
 

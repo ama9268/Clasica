@@ -1,4 +1,7 @@
 import logging
+from datetime import timedelta
+from django.utils import timezone
+from django.db.models import Case, When, Value, F, DurationField
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, DetailView, View, TemplateView
 from django.shortcuts import get_object_or_404, redirect
@@ -17,8 +20,11 @@ class HomeView(TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["next_edition"] = Edition.objects.filter(status=Edition.STATUS_OPEN).first()
-        ctx["last_editions"] = Edition.objects.filter(status=Edition.STATUS_PUBLISHED)[:5]
+        today = timezone.now().date()
+        # La próxima edición es la más cercana en el futuro o hoy
+        ctx["next_edition"] = Edition.objects.filter(date__gte=today).order_by("date").first()
+        # Las últimas ediciones son las más recientes en el pasado
+        ctx["last_editions"] = Edition.objects.filter(date__lt=today).order_by("-date")[:5]
         return ctx
 
 
@@ -27,6 +33,17 @@ class EditionListView(LoginRequiredMixin, ListView):
     model = Edition
     template_name = "public/edition_list.html"
     context_object_name = "editions"
+
+    def get_queryset(self):
+        today = timezone.now().date()
+        # Ordenar: Futuras (más cercanas primero), luego Pasadas (más recientes primero)
+        return super().get_queryset().annotate(
+            priority=Case(
+                When(date__gte=today, then=F('date') - today),
+                default=today - F('date') + timedelta(days=36500), # +100 años para ponerlas después
+                output_field=DurationField()
+            )
+        ).order_by("priority")
     paginate_by = 20
 
 

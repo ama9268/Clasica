@@ -30,7 +30,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class EditionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Edition
-        fields = ["id", "date", "name", "route_distance_km", "status",
+        fields = ["id", "date", "name", "start_time", "route_distance_km", "status",
                   "is_registration_open", "results_published"]
 
 
