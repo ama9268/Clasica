@@ -3,6 +3,7 @@ from rest_framework_gis.fields import GeometryField
 from apps.accounts.models import UserProfile
 from apps.editions.models import Edition
 from apps.classifications.models import Classification
+from apps.editions.services.aemet import get_weather_forecast_for_edition
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -50,9 +51,10 @@ class EditionDetailSerializer(EditionSerializer):
     classifications = serializers.SerializerMethodField()
     route_geojson = GeometryField(source="route_geom", read_only=True)
     user_registered = serializers.SerializerMethodField()
+    weather = serializers.SerializerMethodField()
 
     class Meta(EditionSerializer.Meta):
-        fields = EditionSerializer.Meta.fields + ["route_geojson", "classifications", "user_registered"]
+        fields = EditionSerializer.Meta.fields + ["route_geojson", "classifications", "user_registered", "weather"]
 
     def get_classifications(self, obj):
         qs = (
@@ -70,6 +72,9 @@ class EditionDetailSerializer(EditionSerializer):
         if not request or not request.user.is_authenticated:
             return False
         return obj.participations.filter(user=request.user).exists()
+
+    def get_weather(self, obj):
+        return get_weather_forecast_for_edition(obj.date)
 
 
 class UserStatsSerializer(serializers.ModelSerializer):

@@ -38,3 +38,8 @@ Este archivo contiene un listado de recomendaciones de refactorización y arquit
 - [ ] **Selector de Rutas Avanzado**: Implementar `Tom Select` o `Select2` en el formulario de edición para permitir búsquedas rápidas en el desplegable de variantes, especialmente útil ahora que incluye descripciones largas.
 - [ ] **Caché de Ordenación**: Implementar caché de fragmentos o de QuerySet para la lógica de ordenación por proximidad, reduciendo la carga en base de datos en páginas de alto tráfico.
 - [ ] **Badges de Estado en Listados**: Añadir indicadores visuales (colores) en las listas de ediciones para distinguir rápidamente entre ediciones futuras, pasadas y en curso.
+- [x] **Validación Robusta de API AEMET**: Implementar un esquema de validación (ej. Pydantic) para mapear las respuestas de la API externa, evitando errores de tipo `TypeError` al cambiar la estructura de la respuesta.
+- [ ] **Circuit Breaker para AEMET**: Implementar un patrón de "Circuit Breaker" o un fallback silencioso cuando AEMET falle o devuelva datos incompletos, evitando dependencias críticas externas.
+- [ ] **Logging Estructurado de Meteorología**: Mejorar el logging en `aemet.py` para registrar campos que devuelven formatos inesperados (como listas), facilitando el debug proactivo.
+- [x] **Gestión de Túneles Expo:** Asegurar la instalación local de `@expo/ngrok` para evitar errores de tipo `TypeError` al iniciar túneles de desarrollo.
+- [ ] **Rotación de Authtokens de Ngrok:** Implementar una política de actualización de tokens de ngrok para evitar el error `session closed` o `remote gone away` por límites de uso.
