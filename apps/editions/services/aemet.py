@@ -88,15 +88,27 @@ def _get_single_town_forecast(ine_code, edition_date, api_key):
 
 def _average_forecasts(forecasts):
     # Simplificación: tomamos el primer estado de cielo y promediamos valores numéricos
-    valid_temps = [f["temperatura"] for f in forecasts if f["temperatura"] is not None]
-    valid_winds = [f["viento_vel"] for f in forecasts if f["viento_vel"] is not None]
+    def _extract_val(val):
+        if isinstance(val, list) and len(val) > 0:
+            return val[0]
+        return val
+
+    def _safe_float(val):
+        val = _extract_val(val)
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return None
+
+    valid_temps = [v for v in (_safe_float(f.get("temperatura")) for f in forecasts) if v is not None]
+    valid_winds = [v for v in (_safe_float(f.get("viento_vel")) for f in forecasts) if v is not None]
     
     return {
         "temperatura": round(sum(valid_temps) / len(valid_temps)) if valid_temps else None,
-        "viento_dir": forecasts[0]["viento_dir"], # Tomamos dirección del primer punto (Llerena)
+        "viento_dir": _extract_val(forecasts[0].get("viento_dir")), # Tomamos dirección del primer punto (Llerena)
         "viento_vel": round(sum(valid_winds) / len(valid_winds)) if valid_winds else 0,
-        "lluvia": forecasts[0]["lluvia"],
-        "estado_cielo": forecasts[0]["estado_cielo"],
+        "lluvia": _extract_val(forecasts[0].get("lluvia")),
+        "estado_cielo": _extract_val(forecasts[0].get("estado_cielo")),
         "is_multi": True
     }
 
