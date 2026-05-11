@@ -23,6 +23,16 @@ export interface EditionDetail extends Edition {
   route_geojson: GeoJSONLineString | null;
   classifications: Classification[];
   user_registered: boolean;
+  weather: WeatherForecast | null;
+}
+
+export interface WeatherForecast {
+  temperatura: number | null;
+  viento_dir: string | null;
+  viento_vel: number | null;
+  lluvia: number | null;
+  estado_cielo: string | null;
+  is_multi?: boolean;
 }
 
 export interface GeoJSONLineString {

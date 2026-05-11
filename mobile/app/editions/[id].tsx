@@ -84,9 +84,35 @@ export default function EditionDetailScreen() {
       </View>
 
       {coords.length > 0 && region && (
-        <MapView style={s.map} region={region} scrollEnabled={false}>
-          <Polyline coordinates={coords} strokeColor="#8b1a1a" strokeWidth={3} />
-        </MapView>
+        <View style={s.mapContainer}>
+          <MapView style={s.map} region={region} scrollEnabled={false}>
+            <Polyline coordinates={coords} strokeColor="#8b1a1a" strokeWidth={3} />
+          </MapView>
+          {edition.weather && (
+            <View style={s.weatherOverlay}>
+              {edition.weather.temperatura !== null && (
+                <View style={s.weatherItem}>
+                  <Ionicons name="thermometer-outline" size={14} color="#1a2744" />
+                  <Text style={s.weatherText}>{edition.weather.temperatura}°C</Text>
+                </View>
+              )}
+              {edition.weather.viento_vel !== null && (
+                <View style={s.weatherItem}>
+                  <Ionicons name="flag-outline" size={14} color="#1a2744" />
+                  <Text style={s.weatherText}>
+                    {edition.weather.viento_vel} km/h {edition.weather.viento_dir ? `(${edition.weather.viento_dir})` : ''}
+                  </Text>
+                </View>
+              )}
+              {edition.weather.lluvia !== null && edition.weather.lluvia > 0 && (
+                <View style={s.weatherItem}>
+                  <Ionicons name="water-outline" size={14} color="#1a2744" />
+                  <Text style={s.weatherText}>{edition.weather.lluvia}%</Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
       )}
 
       <View style={s.actions}>
@@ -145,7 +171,24 @@ const s = StyleSheet.create({
   name: { fontSize: 22, fontWeight: '800', color: '#f5f0e8' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
   metaText: { fontSize: 13, color: '#9ca3af' },
+  mapContainer: { position: 'relative' },
   map: { height: 220, marginHorizontal: 0 },
+  weatherOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    padding: 8,
+    borderRadius: 8,
+    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  weatherItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  weatherText: { fontSize: 12, fontWeight: '600', color: '#1a2744' },
   actions: { padding: 16, gap: 10 },
   primaryBtn: { backgroundColor: '#8b1a1a', paddingVertical: 14, alignItems: 'center' },
   primaryBtnText: { color: '#f5f0e8', fontSize: 13, fontWeight: '700', letterSpacing: 2 },
