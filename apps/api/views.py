@@ -11,6 +11,7 @@ from apps.participations.models import Participation, Activity
 from apps.classifications.models import Classification
 from apps.classifications.utils import recalculate_positions
 from .serializers import (
+    UserSerializer, UserProfileSerializer, EditionSerializer,
     EditionDetailSerializer, ClassificationSerializer, UserStatsSerializer,
     EditionWriteSerializer, EditionMediaSerializer, RouteVariantSerializer,
 )
