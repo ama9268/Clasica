@@ -247,3 +247,19 @@ La subida del track se hace con `uploadActivity()` de `src/api/editions.ts`.
 - BD y Redis son contenedores externos en `dokploy-network`.
 - La BD **debe** usar imagen `postgis/postgis`.
 - Volumen `media_data` compartido entre `web` y `worker`.
+
+## GitHub y Flujo de Despliegue
+
+- **Repositorio:** `https://github.com/ama9268/Clasica.git`
+- **Rama de desarrollo:** `main`
+- **Rama de producción:** `deploy` — es la que Dokploy escucha para disparar el redeploy automático.
+
+### Workflow obligatorio para desplegar
+
+Después de cada commit en `main`, ejecutar siempre:
+
+```bash
+git checkout deploy && git pull origin deploy && git merge main --no-edit && git push origin deploy && git checkout main
+```
+
+> **Nunca** hacer push directo a `deploy` con `--force`. La rama `deploy` solo recibe merges de `main`.
