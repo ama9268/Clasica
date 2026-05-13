@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "La Clásica",
-    "slug": "clasica",
+    "slug": "laclasica",
     "version": "1.0.0",
     "scheme": "clasica",
     "orientation": "portrait",
@@ -26,7 +26,9 @@
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "ios": {
@@ -34,6 +36,13 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para el tracking en vivo durante la prueba."
       }
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5606e75c-ce3b-4061-a2c8-ea387ce0c24a"
+      }
+    },
+    "owner": "alanmor"
   }
 }

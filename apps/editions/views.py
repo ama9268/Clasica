@@ -86,8 +86,11 @@ class EditionDetailView(LoginRequiredMixin, DetailView):
         ctx["media_photos"] = edition.media.filter(media_type="photo").order_by("order")
         ctx["media_videos"] = edition.media.filter(media_type="video").order_by("order")
 
-        # Weather forecast (AEMET)
-        ctx["weather"] = get_weather_forecast_for_edition(edition.date)
+        # Weather forecast (AEMET) — solo para ediciones abiertas
+        ctx["weather"] = (
+            get_weather_forecast_for_edition(edition.date)
+            if edition.status == Edition.STATUS_OPEN else None
+        )
 
         return ctx
 

@@ -1,14 +1,17 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
   ActivityIndicator, Alert, RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, Redirect } from 'expo-router';
 import { getEditions, deleteEdition } from '@/api/editions';
+import { useAuth } from '@/context/AuthContext';
 import type { Edition } from '@/types';
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
+  if (!user?.is_staff) return <Redirect href="/(tabs)" />;
   const [editions, setEditions] = useState<Edition[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,9 +41,9 @@ export default function AdminDashboard() {
       '¿Estás seguro de que quieres eliminar esta edición? Esta acción no se puede deshacer.',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Eliminar', 
-          style: 'destructive', 
+        {
+          text: 'Eliminar',
+          style: 'destructive',
           onPress: async () => {
             try {
               await deleteEdition(id);
@@ -71,7 +74,7 @@ export default function AdminDashboard() {
       </View>
 
       <View style={s.actions}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={s.actionBtn}
           onPress={() => router.push(`/admin/edition-form?id=${item.id}`)}
         >
@@ -79,7 +82,7 @@ export default function AdminDashboard() {
           <Text style={s.actionText}>EDITAR</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={s.actionBtn}
           onPress={() => router.push(`/admin/media-manager?id=${item.id}`)}
         >
@@ -87,7 +90,7 @@ export default function AdminDashboard() {
           <Text style={s.actionText}>MEDIA</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[s.actionBtn, s.deleteBtn]}
           onPress={() => handleDelete(item.id)}
         >
@@ -110,7 +113,7 @@ export default function AdminDashboard() {
     <View style={s.container}>
       <View style={s.header}>
         <Text style={s.headerTitle}>GESTIÓN DE EDICIONES</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={s.createBtn}
           onPress={() => router.push('/admin/edition-form')}
         >
@@ -128,7 +131,7 @@ export default function AdminDashboard() {
           <RefreshControl refreshing={refreshing} onRefresh={() => {
             setRefreshing(true);
             loadEditions();
-          }} color="#8b1a1a" />
+          }} colors={['#8b1a1a']} tintColor="#8b1a1a" />
         }
         ListEmptyComponent={
           <Text style={s.emptyText}>No hay ediciones registradas.</Text>
@@ -141,27 +144,27 @@ export default function AdminDashboard() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f0e8' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    padding: 20, 
-    backgroundColor: '#1a2744' 
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#1a2744'
   },
   headerTitle: { fontSize: 14, fontWeight: '800', color: '#f5f0e8', letterSpacing: 1 },
-  createBtn: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#8b1a1a', 
-    paddingHorizontal: 12, 
+  createBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#8b1a1a',
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 4
   },
   createBtnText: { color: '#f5f0e8', fontSize: 12, fontWeight: '700', marginLeft: 4 },
   list: { padding: 16 },
-  card: { 
-    backgroundColor: '#fff', 
-    marginBottom: 16, 
+  card: {
+    backgroundColor: '#fff',
+    marginBottom: 16,
     borderRadius: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -170,9 +173,9 @@ const s = StyleSheet.create({
     elevation: 2,
     overflow: 'hidden'
   },
-  cardHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6'
@@ -184,11 +187,11 @@ const s = StyleSheet.create({
   statusClosed: { backgroundColor: '#fee2e2' },
   statusText: { fontSize: 9, fontWeight: '800', color: '#111827' },
   actions: { flexDirection: 'row', padding: 8 },
-  actionBtn: { 
-    flex: 1, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     paddingVertical: 8
   },

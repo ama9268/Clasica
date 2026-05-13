@@ -154,12 +154,12 @@ class ActivityUploadAPIView(APIView):
         score, is_valid = 0.0, False
         if edition.route_geometry:
             score, is_valid = validate_track(edition.route_geometry, track_geometry)
+        # track_geometry se usa solo para validación; no se persiste
 
         activity, _ = Activity.objects.update_or_create(
             participation=participation,
             defaults={
                 "elapsed_time_seconds": int(elapsed),
-                "track_geometry": track_geometry,
                 "is_valid": is_valid,
                 "validation_score": score,
                 "average_moving_speed": float(avg_speed) if avg_speed is not None else None,
@@ -168,6 +168,9 @@ class ActivityUploadAPIView(APIView):
 
         if is_valid:
             recalculate_positions(edition)
+            if edition.status == Edition.STATUS_OPEN:
+                edition.status = Edition.STATUS_PUBLISHED
+                edition.save(update_fields=["status"])
 
         return Response({
             "is_valid": is_valid,

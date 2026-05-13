@@ -126,6 +126,14 @@ CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    "auto-close-expired-editions": {
+        "task": "apps.editions.tasks.auto_close_expired_editions",
+        "schedule": crontab(minute="*/5"),
+    },
+}
+
 # DRF
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

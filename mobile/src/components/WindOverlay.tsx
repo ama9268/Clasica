@@ -1,14 +1,13 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Line, Defs, LinearGradient, Stop } from 'react-native-svg';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedProps, 
-  withRepeat, 
-  withTiming, 
-  easing,
+import Animated, {
+  useSharedValue,
+  useAnimatedProps,
+  withRepeat,
+  withTiming,
+  Easing,
   interpolate,
-  useAnimatedStyle,
   withDelay
 } from 'react-native-reanimated';
 
@@ -44,7 +43,7 @@ const WindParticle = ({ angle, speed, containerWidth, containerHeight }: any) =>
     progress.value = withDelay(
       delay,
       withRepeat(
-        withTiming(1, { duration, easing: easing.linear }),
+        withTiming(1, { duration, easing: Easing.linear }),
         -1,
         false
       )
@@ -54,10 +53,9 @@ const WindParticle = ({ angle, speed, containerWidth, containerHeight }: any) =>
   const animatedProps = useAnimatedProps(() => {
     const currentX = (startX + dx * progress.value * 200) % (containerWidth + 100);
     const currentY = (startY + dy * progress.value * 200) % (containerHeight + 100);
-    
-    // Normalize to wrap around correctly
-    const x = currentX < -50 ? currentWidth + currentX : currentX > containerWidth + 50 ? currentX - containerWidth - 100 : currentX;
-    const y = currentY < -50 ? currentHeight + currentY : currentY > containerHeight + 50 ? currentY - containerHeight - 100 : currentY;
+
+    const x = currentX < -50 ? containerWidth + currentX : currentX > containerWidth + 50 ? currentX - containerWidth - 100 : currentX;
+    const y = currentY < -50 ? containerHeight + currentY : currentY > containerHeight + 50 ? currentY - containerHeight - 100 : currentY;
 
     return {
       x1: x,

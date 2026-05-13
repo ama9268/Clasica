@@ -94,6 +94,8 @@ class EditionDetailSerializer(EditionSerializer):
         return obj.participations.filter(user=request.user).exists()
 
     def get_weather(self, obj):
+        if obj.status != Edition.STATUS_OPEN:
+            return None
         return get_weather_forecast_for_edition(obj.date)
 
 
