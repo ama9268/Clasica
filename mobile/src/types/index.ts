@@ -6,6 +6,7 @@ export interface User {
   birth_date: string | null;
   club: string;
   photo: string | null;
+  is_staff: boolean;
 }
 
 export interface Edition {
@@ -24,6 +25,25 @@ export interface EditionDetail extends Edition {
   classifications: Classification[];
   user_registered: boolean;
   weather: WeatherForecast | null;
+  media: EditionMedia[];
+}
+
+export interface EditionMedia {
+  id: number;
+  edition: number;
+  media_type: 'photo' | 'video';
+  photo: string | null;
+  video_url: string | null;
+  caption: string;
+  order: number;
+  uploaded_at: string;
+}
+
+export interface RouteVariant {
+  id: number;
+  name: string;
+  description: string;
+  route_distance_km: number;
 }
 
 export interface WeatherForecast {

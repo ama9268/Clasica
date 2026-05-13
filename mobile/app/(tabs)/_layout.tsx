@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@/context/AuthContext';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -10,6 +11,8 @@ function icon(name: IoniconName) {
 }
 
 export default function TabLayout() {
+  const { user } = useAuth();
+
   return (
     <Tabs
       screenOptions={{
@@ -36,6 +39,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="perfil"
         options={{ title: 'PERFIL', tabBarIcon: icon('person-outline') }}
+      />
+      <Tabs.Screen
+        name="panel"
+        options={{
+          title: 'PANEL',
+          tabBarIcon: icon('settings-outline'),
+          href: user?.is_staff ? undefined : null,
+        }}
       />
     </Tabs>
   );

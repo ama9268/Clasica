@@ -5,11 +5,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'expo-router';
 import { getUserStats } from '@/api/classifications';
 import type { UserStats } from '@/types';
 
 export default function PerfilScreen() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -93,6 +95,16 @@ export default function PerfilScreen() {
         </>
       ) : null}
 
+      {user.is_staff && (
+        <TouchableOpacity 
+          style={s.adminBtn} 
+          onPress={() => router.push('/admin')}
+        >
+          <Ionicons name="shield-checkmark-outline" size={18} color="#1a2744" />
+          <Text style={s.adminText}>ADMINISTRACIÓN</Text>
+        </TouchableOpacity>
+      )}
+
       <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={18} color="#8b1a1a" />
         <Text style={s.logoutText}>CERRAR SESIÓN</Text>
@@ -124,4 +136,6 @@ const s = StyleSheet.create({
   histPos: { fontSize: 16, fontWeight: '700', color: '#1a2744' },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 12, marginBottom: 40, padding: 14, borderWidth: 1, borderColor: '#8b1a1a' },
   logoutText: { fontSize: 13, fontWeight: '700', color: '#8b1a1a', letterSpacing: 1 },
+  adminBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 32, padding: 14, backgroundColor: '#f5f0e8', borderWidth: 1, borderColor: '#1a2744' },
+  adminText: { fontSize: 13, fontWeight: '700', color: '#1a2744', letterSpacing: 1 },
 });

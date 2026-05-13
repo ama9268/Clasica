@@ -43,3 +43,8 @@ Este archivo contiene un listado de recomendaciones de refactorización y arquit
 - [ ] **Logging Estructurado de Meteorología**: Mejorar el logging en `aemet.py` para registrar campos que devuelven formatos inesperados (como listas), facilitando el debug proactivo.
 - [x] **Gestión de Túneles Expo:** Asegurar la instalación local de `@expo/ngrok` para evitar errores de tipo `TypeError` al iniciar túneles de desarrollo.
 - [ ] **Rotación de Authtokens de Ngrok:** Implementar una política de actualización de tokens de ngrok para evitar el error `session closed` o `remote gone away` por límites de uso.
+- [ ] **Iconos Dinámicos de Clima:** Sustituir los iconos estáticos por iconos que reflejen el estado real del cielo (sol, nubes, lluvia) basándose en la descripción detallada que devuelve AEMET.
+- [ ] **Skeleton Loaders en Admin:** Implementar estados de carga (skeletons) en el Dashboard de administración y el Gestor de Media para mejorar la percepción de velocidad.
+- [ ] **Compresión de Imágenes en Cliente:** Utilizar `expo-image-manipulator` para comprimir y redimensionar las fotos antes de subirlas al servidor, reduciendo el consumo de datos y el tiempo de carga.
+- [ ] **Paginación en Administración:** Implementar carga infinita o paginación en el listado de ediciones del panel de administración para manejar grandes volúmenes de datos eficientemente.
+- [ ] **Ajuste Dinámico de WindOverlay:** Adaptar el número de partículas del mapa de viento dinámicamente según el rendimiento del dispositivo para mantener los 60 FPS.

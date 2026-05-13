@@ -1,4 +1,3 @@
-import json
 import logging
 from django.contrib.gis.db import models
 from django.utils import timezone
@@ -37,7 +36,6 @@ class Activity(models.Model):
         related_name="activity",
     )
     elapsed_time_seconds = models.PositiveIntegerField(null=True, blank=True)
-    track_geometry = models.LineStringField(srid=4326, null=True, blank=True)
     is_valid = models.BooleanField(default=False)
     validation_score = models.FloatField(null=True, blank=True)
     average_moving_speed = models.FloatField(null=True, blank=True)  # km/h, speed > 0 points only
@@ -58,9 +56,3 @@ class Activity(models.Model):
         h, rem = divmod(self.elapsed_time_seconds, 3600)
         m, s = divmod(rem, 60)
         return f"{h:02d}:{m:02d}:{s:02d}"
-
-    @property
-    def track_geojson(self) -> dict | None:
-        if self.track_geometry:
-            return json.loads(self.track_geometry.geojson)
-        return None

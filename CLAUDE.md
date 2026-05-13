@@ -11,6 +11,7 @@ Gestión de una prueba ciclista semanal. Los participantes se registran desde la
 - **Tiempo real:** Django Channels (Daphne ASGI) + Redis (tracking en vivo por WebSocket)
 - **App Móvil:** React Native (Expo) en `mobile/`
 - **Meteorología:** AEMET API
+- **Tareas asíncronas:** Celery + Beat (cierre automático de ediciones)
 
 > Strava eliminado. El track GPS lo aporta directamente la app móvil.
 
@@ -19,7 +20,7 @@ Gestión de una prueba ciclista semanal. Los participantes se registran desde la
 | App | Propósito |
 |-----|-----------|
 | `accounts/` | Auth y perfiles de usuario |
-| `editions/` | Ediciones, variantes de ruta, galería de medios |
+| `editions/` | Ediciones, variantes de ruta, galería de medios, tarea Celery |
 | `participations/` | Inscripciones y actividades GPS enviadas desde la app |
 | `classifications/` | Tiempos y posiciones por categoría de edad |
 | `tracking/` | WebSocket para seguimiento en vivo durante la prueba |
@@ -66,19 +67,20 @@ caption, order
 ### `participations.Participation`
 ```python
 user: FK(UserProfile), edition: FK(Edition)
+registered_at: DateTimeField(auto_now_add=True)
 unique_together: (user, edition)
 ```
 
 ### `participations.Activity`
 Actividad GPS enviada por la app móvil al terminar la prueba.
+**El track GPS se usa únicamente para la validación y no se persiste en BD.**
 ```python
 participation: OneToOne(Participation, related_name='activity')
-elapsed_time_seconds: PositiveIntegerField
-track_geometry: LineStringField(srid=4326)
-is_valid: bool, validation_score: float
+elapsed_time_seconds: PositiveIntegerField(nullable)
+average_moving_speed: FloatField(nullable)   # km/h, solo puntos con velocidad > 0
+is_valid: bool, validation_score: float(nullable)
 recorded_at: DateTimeField
 @property elapsed_formatted: str   # HH:MM:SS
-@property track_geojson: dict | None
 ```
 
 ### `classifications.Classification`
@@ -97,22 +99,40 @@ position_overall, position_category
 3. Durante la prueba, la app registra posiciones GPS y las emite por WebSocket (`ws/tracking/<edition_id>/`) para el mapa en vivo.
 4. Al finalizar, la app envía el track completo (`POST /api/v1/editions/<pk>/activity/`):
    ```json
-   { "track_geojson": {"type":"LineString","coordinates":[[lon,lat],...]}, "elapsed_time_seconds": 3600 }
+   {
+     "track_geojson": {"type": "LineString", "coordinates": [[lon, lat], ...]},
+     "elapsed_time_seconds": 3600,
+     "average_moving_speed": 28.5
+   }
    ```
-5. El backend valida con `validate_track()` (PostGIS) y responde:
+5. El backend valida con `validate_track()` (PostGIS) — el track **no se guarda** — y responde:
    ```json
-   { "is_valid": true, "validation_score": 0.94, "elapsed_time_seconds": 3600, "elapsed_formatted": "01:00:00" }
+   {
+     "is_valid": true,
+     "validation_score": 0.94,
+     "elapsed_time_seconds": 3600,
+     "elapsed_formatted": "01:00:00",
+     "average_moving_speed": 28.5
+   }
    ```
-6. El organizador publica resultados desde el dashboard (`POST /dashboard/editions/<pk>/publish/`).
+6. Si la actividad es válida, se recalculan posiciones y la edición pasa a `results_published` automáticamente.
+7. El organizador también puede publicar resultados manualmente desde el dashboard (`POST /dashboard/editions/<pk>/publish/`).
 
 ## Validación Geoespacial Nativa
-`participations/tasks.py::validate_track(edition_geometry, user_geometry, threshold_m=100, min_score=0.80)`:
+`participations/tasks.py::validate_track(edition_geometry, user_geometry, threshold_m=None, min_score=None)`:
+- Lee umbrales desde `settings.GPX_MATCH_THRESHOLD_METERS` y `settings.GPX_MATCH_MIN_SCORE`.
 - `ST_Transform` a SRID 3857 (metros).
 - `ST_DumpPoints` densifica la ruta oficial.
-- `ST_DWithin` comprueba cada punto del track del participante.
-- `score = matched_pts / total_pts`. `is_valid` si `score >= 0.80`.
+- `ST_DWithin` comprueba cada punto del track del participante contra la ruta oficial.
+- `score = matched_pts / total_pts`. `is_valid` si `score >= min_score`.
+- Retorna `tuple[float, bool]` → `(score, is_valid)`.
 
 **Nunca calcular distancias con Haversine en Python. Siempre delegar a PostGIS.**
+
+## Tareas Celery
+`apps/editions/tasks.py::auto_close_expired_editions()`:
+- Tarea periódica (Beat). Cierra ediciones `open` a partir de las 21:30 si no hay ningún finisher válido.
+- El worker arranca con `celery -A clasica_project worker --beat -l info`.
 
 ## Tracking en Tiempo Real
 - WebSocket en `ws/tracking/<edition_id>/` → `TrackingConsumer`.
@@ -126,6 +146,7 @@ position_overall, position_category
 - Prioriza previsión horaria (17:00), fallback a diaria.
 - Cache 1 hora.
 - Retorna: `{temperatura, viento_dir, viento_vel, lluvia, estado_cielo}`.
+- Solo se incluye en `EditionDetailSerializer` si la edición está `open`.
 
 ## GPX Parsing
 - `apps/editions/utils.py::parse_gpx_to_geometry_and_elevation(gpx_file)` → `(LineString, km, list)`.
@@ -140,6 +161,13 @@ position_overall, position_category
 
 ## URLs — Mapa completo
 
+### Web pública
+| URL | Vista |
+|-----|-------|
+| `/` | `HomeView` — pública, muestra `next_edition` y `last_editions` |
+| `/editions/` | `EditionListView` — requiere login |
+| `/editions/<pk>/` | `EditionDetailView` — requiere login |
+
 ### API REST (`/api/v1/`)
 | Método | URL | Descripción |
 |--------|-----|-------------|
@@ -148,11 +176,17 @@ position_overall, position_category
 | POST | `auth/token/refresh/` | Renovar token |
 | GET/PATCH | `auth/me/` | Perfil propio |
 | GET | `editions/` | Lista ediciones |
-| GET | `editions/<pk>/` | Detalle + ruta GeoJSON |
+| POST | `editions/` | Crear edición (staff) |
+| GET | `editions/<pk>/` | Detalle + ruta GeoJSON + clima + media + clasificación |
+| PATCH | `editions/<pk>/` | Editar edición (staff) |
+| DELETE | `editions/<pk>/` | Eliminar edición (staff, solo si no ha comenzado) |
 | POST | `editions/<pk>/register/` | Inscribirse |
-| **POST** | **`editions/<pk>/activity/`** | **Subir track GPS** |
-| GET | `classifications/general/` | Clasificación general |
-| GET | `stats/user/<pk>/` | Stats de un usuario |
+| **POST** | **`editions/<pk>/activity/`** | **Subir track GPS + velocidad media** |
+| GET/POST | `editions/<pk>/media/` | Listar / añadir media (POST: staff) |
+| DELETE | `media/<pk>/` | Eliminar media (staff) |
+| GET | `route-variants/` | Listar variantes de ruta |
+| GET | `classifications/general/` | Ranking general (total + válidas por usuario) |
+| GET | `stats/user/<pk>/` | Stats completas de un usuario |
 
 ### WebSocket
 ```
@@ -162,30 +196,36 @@ ws/tracking/<edition_id>/   →   TrackingConsumer
 ### Dashboard (staff)
 | URL | Acción |
 |-----|--------|
-| `/dashboard/editions/<pk>/publish/` | Publicar resultados |
+| `/dashboard/editions/<pk>/publish/` | Publicar resultados manualmente |
 | `/dashboard/editions/<pk>/media/add/` | Añadir foto/vídeo |
 | `/dashboard/media/<pk>/delete/` | Borrar media |
 | `/dashboard/activities/<pk>/validate/` | Toggle validación manual |
 | `/dashboard/variants/new/` | Crear variante de ruta |
 
 ## Publicación de Resultados
-`dashboard/views.py::_recalculate_positions(edition)`:
+`classifications/utils.py::recalculate_positions(edition)`:
 1. Filtra `Activity` válidas de la edición, ordenadas por `elapsed_time_seconds`.
 2. Calcula categoría con `get_category(birth_date, edition_date)`.
 3. Crea/actualiza `Classification` con posición general y por categoría.
-4. `edition.status = 'results_published'`.
+4. Se invoca automáticamente al recibir una actividad válida vía API (y la edición pasa a `results_published`).
+5. También invocable manualmente desde el dashboard.
 
 ## App Móvil (`mobile/`)
 Expo Router + TypeScript. Ver [mobile/README.md](mobile/README.md).
 
-| Pantalla | Ruta |
-|----------|------|
-| Login / Registro | `(auth)/login`, `(auth)/register` |
-| Lista ediciones | `(tabs)/index` |
-| Clasificación | `(tabs)/clasificacion` |
-| Perfil + historial | `(tabs)/perfil` |
-| Detalle edición + mapa | `editions/[id]` |
-| Tracking en vivo | `live/[id]` |
+| Pantalla | Ruta | Acceso |
+|----------|------|--------|
+| Login / Registro | `(auth)/login`, `(auth)/register` | Público |
+| Lista ediciones | `(tabs)/index` | Autenticado |
+| Clasificación | `(tabs)/clasificacion` | Autenticado |
+| Perfil + historial | `(tabs)/perfil` | Autenticado |
+| Ruta + tracking GPS | `(tabs)/ruta` | Autenticado |
+| Panel admin (tab) | `(tabs)/panel` | Solo staff (redirige a `/admin`) |
+| Admin: lista ediciones | `admin/index` | Solo staff |
+| Admin: crear/editar edición | `admin/edition-form` | Solo staff |
+| Admin: gestión de media | `admin/media-manager` | Solo staff |
+| Detalle edición + mapa | `editions/[id]` | Autenticado |
+| Tracking en vivo | `live/[id]` | Autenticado |
 
 La subida del track se hace con `uploadActivity()` de `src/api/editions.ts`.
 
@@ -193,15 +233,17 @@ La subida del track se hace con `uploadActivity()` de `src/api/editions.ts`.
 
 1. **PostGIS nativo:** operaciones espaciales siempre en la BD, nunca Haversine en Python.
 2. **Seguridad:** filtrar querysets por `request.user`; nunca aceptar `user` como input de serializer.
-3. **Geometría:** `route_geojson` y `track_geojson` son `@property` calculadas, no columnas en BD.
-4. **Acceso:** todas las vistas de ediciones y clasificaciones requieren `LoginRequired`.
+3. **Geometría:** `route_geojson` es `@property` calculada, no columna en BD. El track GPS no se persiste.
+4. **Acceso:** todas las vistas web de ediciones y clasificaciones requieren `LoginRequired`. La `HomeView` es pública.
 5. **Media:** fotos en `editions/media/`; vídeos como URL. `embed_url` convierte a embebible.
 6. **Entorno Windows:** definir `GDAL_LIBRARY_PATH` y `GEOS_LIBRARY_PATH` en `settings/base.py`.
-7. **`related_name` clave:** `participation.activity` (no `strava_activity`).
+7. **`related_name` clave:** `participation.activity` (OneToOne).
+8. **Validación GPS:** umbrales configurables en `settings` (`GPX_MATCH_THRESHOLD_METERS`, `GPX_MATCH_MIN_SCORE`).
+9. **Auto-publicación:** al recibir una actividad válida la edición pasa a `results_published` automáticamente desde `ActivityUploadAPIView`.
 
 ## Despliegue (Dokploy)
-- `docker-compose.yml`: `web` (Daphne ASGI, puerto 8000) + `worker` (Celery, reservado para futuras tareas).
-- `entrypoint.sh`: `web` ejecuta `migrate` + `collectstatic` + `daphne`; `worker` ejecuta `celery`.
+- `docker-compose.yml`: `web` (Daphne ASGI, puerto 8000) + `worker` (Celery + Beat).
+- `entrypoint.sh`: `web` ejecuta `migrate` + `collectstatic` + `daphne`; `worker` ejecuta `celery worker --beat`.
 - BD y Redis son contenedores externos en `dokploy-network`.
 - La BD **debe** usar imagen `postgis/postgis`.
 - Volumen `media_data` compartido entre `web` y `worker`.
