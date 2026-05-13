@@ -68,7 +68,7 @@ class ClassificationSerializer(serializers.ModelSerializer):
 
 class EditionDetailSerializer(EditionSerializer):
     classifications = serializers.SerializerMethodField()
-    route_geojson = GeometryField(source="route_geom", read_only=True)
+    route_geojson = GeometryField(source="route_geometry", read_only=True)
     user_registered = serializers.SerializerMethodField()
     weather = serializers.SerializerMethodField()
     media = EditionMediaSerializer(many=True, read_only=True)
