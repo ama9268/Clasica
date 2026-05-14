@@ -69,12 +69,20 @@ class ClassificationSerializer(serializers.ModelSerializer):
 class EditionDetailSerializer(EditionSerializer):
     classifications = serializers.SerializerMethodField()
     route_geojson = GeometryField(source="route_geometry", read_only=True)
+    is_live = serializers.SerializerMethodField()
+    elevation_profile = serializers.SerializerMethodField()
     user_registered = serializers.SerializerMethodField()
     weather = serializers.SerializerMethodField()
     media = EditionMediaSerializer(many=True, read_only=True)
+    participants_count = serializers.SerializerMethodField()
+    participants = serializers.SerializerMethodField()
 
     class Meta(EditionSerializer.Meta):
-        fields = EditionSerializer.Meta.fields + ["route_geojson", "classifications", "user_registered", "weather", "media"]
+        fields = EditionSerializer.Meta.fields + [
+            "route_geojson", "is_live", "elevation_profile",
+            "classifications", "user_registered", "weather", "media",
+            "participants_count", "participants",
+        ]
 
     def get_classifications(self, obj):
         qs = (
@@ -87,6 +95,12 @@ class EditionDetailSerializer(EditionSerializer):
         )
         return ClassificationSerializer(qs, many=True).data
 
+    def get_is_live(self, obj) -> bool:
+        return obj.is_live
+
+    def get_elevation_profile(self, obj):
+        return obj.get_elevation_profile
+
     def get_user_registered(self, obj) -> bool:
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
@@ -97,6 +111,18 @@ class EditionDetailSerializer(EditionSerializer):
         if obj.status != Edition.STATUS_OPEN:
             return None
         return get_weather_forecast_for_edition(obj.date)
+
+    def get_participants_count(self, obj) -> int:
+        return obj.participations.count()
+
+    def get_participants(self, obj):
+        if obj.status != Edition.STATUS_OPEN:
+            return []
+        return list(
+            obj.participations.select_related("user")
+            .values("user__full_name", "user__club")
+            .order_by("registered_at")
+        )
 
 
 class UserStatsSerializer(serializers.ModelSerializer):
