@@ -26,3 +26,9 @@ def auto_close_expired_editions():
             edition.status = Edition.STATUS_CLOSED
             edition.save(update_fields=["status"])
             logger.info("Edición %s cerrada automáticamente (sin finishers a las 21:30).", edition)
+        else:
+            from apps.classifications.utils import recalculate_positions
+            recalculate_positions(edition)
+            edition.status = Edition.STATUS_PUBLISHED
+            edition.save(update_fields=["status"])
+            logger.info("Edición %s publicada automáticamente a las 21:30 (tiene finishers válidos).", edition)

@@ -99,7 +99,7 @@ class Edition(models.Model):
     def is_live(self) -> bool:
         """Determina si el seguimiento en directo debe estar activo."""
         now = timezone.localtime(timezone.now())
-        if now.date() != self.date or self.results_published:
+        if now.date() != self.date:
             return False
         return self.start_time <= now.time() <= time(21, 30)
 
