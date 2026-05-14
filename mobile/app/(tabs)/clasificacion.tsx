@@ -2,20 +2,14 @@ import { useEffect, useState } from 'react';
 import {
   View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { getGeneralClassification } from '@/api/classifications';
-import type { Classification } from '@/types';
-
-const CATEGORY_COLOR: Record<string, string> = {
-  open: '#1a2744',
-  M40: '#7c3aed',
-  M50: '#0369a1',
-  M60: '#b45309',
-};
+import type { GeneralRankingEntry } from '@/types';
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 export default function ClasificacionScreen() {
-  const [data, setData] = useState<Classification[]>([]);
+  const [data, setData] = useState<GeneralRankingEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -44,34 +38,44 @@ export default function ClasificacionScreen() {
     <FlatList
       style={s.list}
       data={data}
-      keyExtractor={(_, i) => String(i)}
+      keyExtractor={(item) => String(item.user__pk)}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => { setRefreshing(true); load(); }}
+          colors={['#8b1a1a']}
+          tintColor="#8b1a1a"
+        />
       }
       ListHeaderComponent={
         <View style={s.headerRow}>
-          <Text style={[s.col, { flex: 0.5 }]}>POS</Text>
-          <Text style={[s.col, { flex: 2 }]}>CICLISTA</Text>
-          <Text style={[s.col, { flex: 1, textAlign: 'right' }]}>TIEMPO</Text>
-          <Text style={[s.col, { flex: 0.7, textAlign: 'right' }]}>CAT</Text>
+          <Text style={[s.col, { width: 36 }]}>#</Text>
+          <Text style={[s.col, { flex: 1 }]}>CICLISTA</Text>
+          <Text style={[s.col, s.colRight, { width: 44 }]}>✓</Text>
+          <Text style={[s.col, s.colRight, { width: 44 }]}>TOTAL</Text>
         </View>
       }
       ListEmptyComponent={
-        <Text style={s.empty}>No hay resultados publicados aún.</Text>
+        <View style={s.emptyContainer}>
+          <Ionicons name="podium-outline" size={48} color="#d1d5db" />
+          <Text style={s.empty}>No hay participantes registrados aún.</Text>
+        </View>
       }
-      renderItem={({ item }) => (
-        <View style={s.row}>
-          <Text style={[s.pos, { flex: 0.5 }]}>
-            {MEDAL[item.position_overall] ?? `${item.position_overall}º`}
+      renderItem={({ item, index }) => (
+        <View style={[s.row, index === 0 && s.rowFirst]}>
+          <Text style={[s.pos, { width: 36 }]}>
+            {MEDAL[index + 1] ?? `${index + 1}º`}
           </Text>
-          <View style={{ flex: 2 }}>
-            <Text style={s.name}>{item.full_name}</Text>
-            {item.club ? <Text style={s.club}>{item.club}</Text> : null}
+          <View style={{ flex: 1 }}>
+            <Text style={s.name}>{item['user__full_name'] || item['user__username']}</Text>
+            {item['user__club'] ? (
+              <Text style={s.club}>{item['user__club']}</Text>
+            ) : null}
           </View>
-          <Text style={[s.time, { flex: 1 }]}>{item.time_formatted}</Text>
-          <View style={[s.catBadge, { backgroundColor: CATEGORY_COLOR[item.category] ?? '#6b7280' }]}>
-            <Text style={s.catText}>{item.category?.toUpperCase() ?? ''}</Text>
+          <View style={[s.badge, { width: 44 }]}>
+            <Text style={s.badgeText}>{item.valid}</Text>
           </View>
+          <Text style={[s.total, { width: 44 }]}>{item.total}</Text>
         </View>
       )}
     />
@@ -81,21 +85,24 @@ export default function ClasificacionScreen() {
 const s = StyleSheet.create({
   list: { flex: 1, backgroundColor: '#f5f0e8' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f0e8' },
-  empty: { textAlign: 'center', color: '#6b7280', marginTop: 48, fontSize: 14 },
+  emptyContainer: { alignItems: 'center', marginTop: 60, gap: 12 },
+  empty: { textAlign: 'center', color: '#6b7280', fontSize: 14 },
   headerRow: {
-    flexDirection: 'row', backgroundColor: '#1a2744', paddingHorizontal: 16,
-    paddingVertical: 10, alignItems: 'center',
+    flexDirection: 'row', backgroundColor: '#1a2744',
+    paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center',
   },
   col: { fontSize: 10, fontWeight: '700', color: '#f5f0e8', letterSpacing: 1 },
+  colRight: { textAlign: 'right' },
   row: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
-    marginHorizontal: 0, paddingHorizontal: 16, paddingVertical: 12,
+    paddingHorizontal: 16, paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
   },
+  rowFirst: { borderTopWidth: 2, borderTopColor: '#f59e0b' },
   pos: { fontSize: 16, fontWeight: '800', color: '#1a2744' },
   name: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
   club: { fontSize: 11, color: '#6b7280', marginTop: 1 },
-  time: { fontSize: 13, fontWeight: '700', color: '#8b1a1a', textAlign: 'right', marginRight: 8 },
-  catBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 2 },
-  catText: { fontSize: 10, fontWeight: '700', color: '#fff' },
+  badge: { backgroundColor: '#8b1a1a', borderRadius: 3, paddingVertical: 2, alignItems: 'center', marginRight: 4 },
+  badgeText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  total: { fontSize: 12, color: '#6b7280', textAlign: 'right' },
 });

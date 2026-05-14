@@ -22,10 +22,23 @@ export interface Edition {
 
 export interface EditionDetail extends Edition {
   route_geojson: GeoJSONLineString | null;
+  elevation_profile: { dist: number; alt: number }[] | null;
+  is_live: boolean;
   classifications: Classification[];
   user_registered: boolean;
   weather: WeatherForecast | null;
   media: EditionMedia[];
+  participants_count: number;
+  participants: { user__full_name: string; user__club: string }[];
+}
+
+export interface GeneralRankingEntry {
+  user__pk: number;
+  user__full_name: string;
+  user__username: string;
+  user__club: string;
+  total: number;
+  valid: number;
 }
 
 export interface EditionMedia {

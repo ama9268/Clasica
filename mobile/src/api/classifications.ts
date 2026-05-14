@@ -1,8 +1,8 @@
 import client from './client';
-import type { Classification, UserStats } from '../types';
+import type { GeneralRankingEntry, UserStats } from '../types';
 
-export async function getGeneralClassification(): Promise<Classification[]> {
-  const { data } = await client.get<Classification[]>(
+export async function getGeneralClassification(): Promise<GeneralRankingEntry[]> {
+  const { data } = await client.get<GeneralRankingEntry[]>(
     '/classifications/general/'
   );
   return data;
