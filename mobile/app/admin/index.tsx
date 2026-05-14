@@ -112,6 +112,9 @@ export default function AdminDashboard() {
   return (
     <View style={s.container}>
       <View style={s.header}>
+        <TouchableOpacity onPress={() => router.replace('/(tabs)')} style={s.backBtn}>
+          <Ionicons name="chevron-back" size={24} color="#f5f0e8" />
+        </TouchableOpacity>
         <Text style={s.headerTitle}>GESTIÓN DE EDICIONES</Text>
         <TouchableOpacity
           style={s.createBtn}
@@ -148,10 +151,12 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 16,
     backgroundColor: '#1a2744'
   },
-  headerTitle: { fontSize: 14, fontWeight: '800', color: '#f5f0e8', letterSpacing: 1 },
+  backBtn: { padding: 4 },
+  headerTitle: { fontSize: 14, fontWeight: '800', color: '#f5f0e8', letterSpacing: 1, flex: 1, marginLeft: 8 },
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
