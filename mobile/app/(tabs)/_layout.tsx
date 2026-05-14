@@ -41,11 +41,12 @@ export default function TabLayout() {
         options={{ title: 'PERFIL', tabBarIcon: icon('person-outline') }}
       />
       <Tabs.Screen
-        name="panel"
+        name="admin"
         options={{
           title: 'PANEL',
           tabBarIcon: icon('settings-outline'),
           href: user?.is_staff ? undefined : null,
+          headerShown: false,
         }}
       />
     </Tabs>

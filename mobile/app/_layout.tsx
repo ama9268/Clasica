@@ -43,9 +43,6 @@ function Guard() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="editions/[id]" options={{ title: 'Edición' }} />
       <Stack.Screen name="live/[id]" options={{ title: 'En Vivo' }} />
-      <Stack.Screen name="admin/index" options={{ headerShown: false }} />
-      <Stack.Screen name="admin/edition-form" options={{ title: 'Edición' }} />
-      <Stack.Screen name="admin/media-manager" options={{ title: 'Galería' }} />
     </Stack>
   );
 }
