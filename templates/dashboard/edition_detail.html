@@ -22,10 +22,12 @@
           Editar
         </a>
         {% endif %}
+        {% if object.is_live %}
         <a href="/live/{{ object.pk }}/" target="_blank"
-           class="btn-secondary text-xs py-2 px-4" style="border-color:#fff5;color:#ccc;">
+           class="btn-secondary text-xs py-2 px-4 animate-pulse" style="border-color:#fff5;color:#ccc;">
           En directo →
         </a>
+        {% endif %}
       </div>
     </div>
   </div>
