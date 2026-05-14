@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect, Redirect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getEditions, deleteEdition } from '@/api/editions';
 import { useAuth } from '@/context/AuthContext';
 import type { Edition } from '@/types';
@@ -16,6 +17,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const loadEditions = useCallback(async () => {
     try {
@@ -111,10 +113,7 @@ export default function AdminDashboard() {
 
   return (
     <View style={s.container}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.replace('/(tabs)')} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={24} color="#f5f0e8" />
-        </TouchableOpacity>
+      <View style={[s.header, { paddingTop: insets.top + 12 }]}>
         <Text style={s.headerTitle}>GESTIÓN DE EDICIONES</Text>
         <TouchableOpacity
           style={s.createBtn}
@@ -151,12 +150,11 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 16,
-    backgroundColor: '#1a2744'
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: '#1a2744',
   },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 14, fontWeight: '800', color: '#f5f0e8', letterSpacing: 1, flex: 1, marginLeft: 8 },
+  headerTitle: { fontSize: 14, fontWeight: '800', color: '#f5f0e8', letterSpacing: 1 },
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
