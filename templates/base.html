@@ -153,6 +153,9 @@
       {% if user.is_authenticated %}
         <a href="/editions/" class="block nav-link py-2">Ediciones</a>
         <a href="/clasificacion/" class="block nav-link py-2">Clasificaciones</a>
+        {% if user.is_staff %}
+          <a href="/dashboard/" class="block nav-link py-2">Panel</a>
+        {% endif %}
         <a href="/accounts/profile/" class="block nav-link py-2">Mi perfil</a>
         <form method="post" action="/accounts/logout/">{% csrf_token %}
           <button class="nav-link block py-2">Salir</button>
