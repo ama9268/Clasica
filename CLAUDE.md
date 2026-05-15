@@ -32,6 +32,12 @@ Gestión de una prueba ciclista semanal. Los participantes se registran desde la
 ### `accounts.UserProfile` (hereda `AbstractUser`)
 ```python
 full_name, birth_date, photo, club
+# Strava OAuth (campos opcionales)
+strava_athlete_id: BigIntegerField(nullable, unique)
+strava_access_token, strava_refresh_token: CharField
+strava_token_expires_at: DateTimeField(nullable)
+@property strava_connected: bool
+save()   # optimiza photo → WebP antes de persistir
 ```
 
 ### `editions.RouteVariant`
@@ -52,6 +58,7 @@ route_distance_km, elevation_profile (JSONField)
 status: ('open' | 'closed' | 'results_published')
 @property is_registration_open, results_published, is_live, has_started
 @property route_geojson, get_elevation_profile, get_route_distance, total_elevation_gain
+@property route_geom: LineString | None   # propia si existe, si no la del route_variant
 ```
 
 ### `editions.EditionMedia`
@@ -62,6 +69,7 @@ photo: ImageField(upload_to='editions/media/')
 video_url: URLField
 caption, order
 @property embed_url   # convierte YouTube/Vimeo a embebible
+save()               # optimiza photo → WebP antes de persistir
 ```
 
 ### `participations.Participation`
@@ -80,6 +88,8 @@ elapsed_time_seconds: PositiveIntegerField(nullable)
 average_moving_speed: FloatField(nullable)   # km/h, solo puntos con velocidad > 0
 is_valid: bool, validation_score: float(nullable)
 recorded_at: DateTimeField
+source: CharField(choices=['mobile','strava'], default='mobile')
+strava_activity_id: BigIntegerField(nullable, unique)
 @property elapsed_formatted: str   # HH:MM:SS
 ```
 
@@ -131,8 +141,27 @@ position_overall, position_category
 
 ## Tareas Celery
 `apps/editions/tasks.py::auto_close_expired_editions()`:
-- Tarea periódica (Beat). Cierra ediciones `open` a partir de las 21:30 si no hay ningún finisher válido.
+- Tarea periódica (Beat, cada 5 min). Se ejecuta a partir de las 21:30 sobre ediciones `open` del día.
+- Si **no hay** finishers válidos → `status = closed`.
+- Si **hay** finishers válidos → llama `recalculate_positions()` y pasa a `results_published`.
 - El worker arranca con `celery -A clasica_project worker --beat -l info`.
+
+## Comandos de Simulación (desarrollo/demo)
+
+### `simulate_race`
+Crea participantes simulados (prefijo `sim__`) con tracks GPS válidos e inválidos, valida y recalcula clasificación.
+```bash
+python manage.py simulate_race --edition <pk> --users 5 --invalid 2 --noise 0.0001 --clean
+```
+- `--clean`: elimina usuarios `sim__*` de la edición antes de generar nuevos.
+- Tracks válidos: ruido ≈ 10 m. Inválidos: desviados ~5 km o recortados al 30 % de la ruta.
+
+### `simulate_live`
+Emite posiciones GPS de participantes `sim__*` en tiempo real vía Channel Layer (no persiste nada).
+```bash
+python manage.py simulate_live --edition <pk> --interval 2 --step 10 --spread 200
+```
+- `--step`: puntos que avanza cada tick. `--spread`: desfase inicial entre participantes.
 
 ## Tracking en Tiempo Real
 - WebSocket en `ws/tracking/<edition_id>/` → `TrackingConsumer`.
@@ -152,6 +181,58 @@ position_overall, position_category
 - `apps/editions/utils.py::parse_gpx_to_geometry_and_elevation(gpx_file)` → `(LineString, km, list)`.
 - `apps/editions/services/gpx_parser.py::parse_gpx_file(gpx_file)` → perfil `[{"dist": km, "alt": m}]`.
 - Coordenadas siempre como `(lon, lat)` para SRID 4326.
+
+## Integración Strava (opcional)
+
+### Conexión OAuth
+`apps/accounts/services/strava.py::StravaClient`:
+- `get_auth_url(redirect_uri)` → URL de autorización Strava (`activity:read`).
+- `exchange_code(code, redirect_uri)` → intercambia el code por tokens.
+- `_ensure_fresh_token()` → refresca automáticamente si el token ha caducado.
+- `get_activities_on_date(date)` → lista actividades Ride del atleta en esa fecha.
+- `get_activity_linestring(activity_id)` → stream latlng → `GEOSLineString(srid=4326)`.
+- `revoke_token()` → revoca en Strava y limpia campos del usuario.
+
+Excepción: `StravaError`.
+
+### Flujo móvil (automático con fallback)
+1. Si `user.strava_connected`: `GET editions/<pk>/strava-activities/` → lista; usuario elige.
+2. `POST editions/<pk>/activity/strava/` con `{strava_activity_id}` → descarga stream, valida PostGIS, guarda `Activity(source='strava')`.
+3. Si falla o sin Strava: fallback a `POST editions/<pk>/activity/` con GPS propio.
+4. Subida tardía permitida hasta `edition.date + STRAVA_ACTIVITY_UPLOAD_WINDOW_HOURS` (default 24 h).
+
+### OAuth web
+`GET /accounts/strava/callback/` → intercambia code y guarda tokens.
+`POST /accounts/strava/disconnect/` → revoca y limpia.
+
+### Endpoints Strava (`/api/v1/`)
+| Método | URL | Descripción |
+|--------|-----|-------------|
+| GET | `auth/strava/auth-url/` | Devuelve URL de autorización |
+| POST | `auth/strava/connect/` | Intercambia code, guarda tokens |
+| POST | `auth/strava/disconnect/` | Revoca token y limpia campos |
+| GET | `editions/<pk>/strava-activities/` | Actividades Ride del usuario en la fecha |
+| POST | `editions/<pk>/activity/strava/` | Valida actividad Strava seleccionada |
+| GET/POST | `strava/webhook/` | Recepción de Strava Push Subscriptions |
+
+### Settings Strava
+```python
+STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET   # variables de entorno
+STRAVA_REDIRECT_URI                       # URL callback web
+STRAVA_ACTIVITY_UPLOAD_WINDOW_HOURS = 24  # ventana post-edición para subida tardía
+```
+
+### App Móvil
+- `mobile/src/api/auth.ts`: `getStravaAuthUrl()`, `connectStrava()`, `disconnectStrava()`.
+- `mobile/app/(tabs)/perfil.tsx`: bloque Strava con estado conectado/desconectado + flujo OAuth vía `expo-web-browser`.
+- Deep link de callback: `clasica://strava-callback` (scheme `clasica` definido en `app.json`).
+
+## Optimización de Imágenes
+`clasica_project/image_utils.py::optimize_image(image_file, quality=82, max_dimension=1920)`:
+- Convierte a **WebP** (calidad 82) y aplica rotación EXIF automáticamente.
+- Redimensiona con LANCZOS si supera 1920 px en cualquier dimensión.
+- Retorna `ContentFile` con extensión `.webp`. En caso de error devuelve el fichero original.
+- Se invoca desde `UserProfile.save()` y `EditionMedia.save()` — no hay que llamarlo explícitamente.
 
 ## Context Processor
 `clasica_project/context_processors.py::open_edition(request)`:
@@ -187,11 +268,23 @@ position_overall, position_category
 | GET | `route-variants/` | Listar variantes de ruta |
 | GET | `classifications/general/` | Ranking general (total + válidas por usuario) |
 | GET | `stats/user/<pk>/` | Stats completas de un usuario |
+| GET | `auth/strava/auth-url/` | URL de autorización Strava |
+| POST | `auth/strava/connect/` | Conectar cuenta Strava |
+| POST | `auth/strava/disconnect/` | Desconectar cuenta Strava |
+| GET | `editions/<pk>/strava-activities/` | Actividades Ride del usuario en la fecha de la edición |
+| POST | `editions/<pk>/activity/strava/` | Validar actividad Strava seleccionada |
+| GET/POST | `strava/webhook/` | Strava Push Subscriptions |
 
 ### WebSocket
 ```
 ws/tracking/<edition_id>/   →   TrackingConsumer
 ```
+
+### Web accounts
+| URL | Acción |
+|-----|--------|
+| `/accounts/strava/callback/` | Callback OAuth Strava (web) |
+| `/accounts/strava/disconnect/` | Desconectar Strava (web, POST) |
 
 ### Dashboard (staff)
 | URL | Acción |
@@ -220,10 +313,10 @@ Expo Router + TypeScript. Ver [mobile/README.md](mobile/README.md).
 | Clasificación | `(tabs)/clasificacion` | Autenticado |
 | Perfil + historial | `(tabs)/perfil` | Autenticado |
 | Ruta + tracking GPS | `(tabs)/ruta` | Autenticado |
-| Panel admin (tab) | `(tabs)/panel` | Solo staff (redirige a `/admin`) |
-| Admin: lista ediciones | `admin/index` | Solo staff |
-| Admin: crear/editar edición | `admin/edition-form` | Solo staff |
-| Admin: gestión de media | `admin/media-manager` | Solo staff |
+| Panel admin (tab) | `(tabs)/admin` | Solo staff |
+| Admin: lista ediciones | `(tabs)/admin/index` | Solo staff |
+| Admin: crear/editar edición | `(tabs)/admin/edition-form` | Solo staff |
+| Admin: gestión de media | `(tabs)/admin/media-manager` | Solo staff |
 | Detalle edición + mapa | `editions/[id]` | Autenticado |
 | Tracking en vivo | `live/[id]` | Autenticado |
 

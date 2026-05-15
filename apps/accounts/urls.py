@@ -10,4 +10,6 @@ urlpatterns = [
     path("profile/", views.ProfileView.as_view(), name="profile"),
     path("password_change/", views.CustomPasswordChangeView.as_view(), name="password_change"),
     path("password_change/done/", views.CustomPasswordChangeDoneView.as_view(), name="password_change_done"),
+    path("strava/callback/", views.StravaCallbackView.as_view(), name="strava_callback"),
+    path("strava/disconnect/", views.StravaDisconnectWebView.as_view(), name="strava_disconnect_web"),
 ]

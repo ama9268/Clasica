@@ -30,6 +30,13 @@ class Participation(models.Model):
 
 
 class Activity(models.Model):
+    SOURCE_MOBILE = "mobile"
+    SOURCE_STRAVA = "strava"
+    SOURCE_CHOICES = [
+        (SOURCE_MOBILE, "App móvil"),
+        (SOURCE_STRAVA, "Strava"),
+    ]
+
     participation = models.OneToOneField(
         Participation,
         on_delete=models.CASCADE,
@@ -40,6 +47,8 @@ class Activity(models.Model):
     validation_score = models.FloatField(null=True, blank=True)
     average_moving_speed = models.FloatField(null=True, blank=True)  # km/h, speed > 0 points only
     recorded_at = models.DateTimeField(default=timezone.now)
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default=SOURCE_MOBILE)
+    strava_activity_id = models.BigIntegerField(null=True, blank=True, unique=True)
 
     class Meta:
         verbose_name = "Actividad"

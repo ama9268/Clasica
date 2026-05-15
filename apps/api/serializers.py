@@ -22,10 +22,15 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    strava_connected = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = UserProfile
-        fields = ["id", "username", "email", "full_name", "birth_date", "club", "photo", "is_staff"]
-        read_only_fields = ["id", "username", "is_staff"]
+        fields = [
+            "id", "username", "email", "full_name", "birth_date", "club", "photo", "is_staff",
+            "strava_connected", "strava_athlete_id",
+        ]
+        read_only_fields = ["id", "username", "is_staff", "strava_connected", "strava_athlete_id"]
 
 
 class RouteVariantSerializer(serializers.ModelSerializer):

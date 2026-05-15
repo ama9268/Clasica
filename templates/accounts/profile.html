@@ -50,6 +50,35 @@
 
 
 
+  <!-- Strava -->
+  <div class="card-classic">
+    <h2 class="font-serif font-bold text-navy text-sm uppercase tracking-widest mb-4">Conexión Strava</h2>
+    {% if user.strava_connected %}
+      <div class="flex items-center gap-3 mb-4">
+        <span class="text-green-600 text-lg">●</span>
+        <div>
+          <p class="text-sm font-semibold text-navy">Cuenta conectada</p>
+          <p class="text-xs text-stone-400">Athlete ID: {{ user.strava_athlete_id }}</p>
+        </div>
+      </div>
+      <form method="post" action="{% url 'accounts:strava_disconnect_web' %}">
+        {% csrf_token %}
+        <button type="submit"
+                class="text-xs uppercase tracking-widest font-bold text-crimson border border-crimson px-4 py-2 hover:bg-crimson hover:text-white transition-colors">
+          Desconectar Strava
+        </button>
+      </form>
+    {% else %}
+      <p class="text-sm text-stone-500 mb-4">
+        Conecta tu cuenta de Strava para validar tus participaciones usando las actividades que ya tienes registradas.
+      </p>
+      <a href="{{ strava_auth_url }}"
+         class="inline-block bg-[#FC4C02] text-white text-xs font-bold uppercase tracking-widest px-5 py-2 hover:opacity-90 transition-opacity">
+        Conectar con Strava
+      </a>
+    {% endif %}
+  </div>
+
   <div class="text-center">
     <a href="/perfil/{{ user.pk }}/" class="nav-link hover:text-crimson">Ver perfil público →</a>
   </div>
