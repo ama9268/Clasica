@@ -7,6 +7,18 @@ export interface User {
   club: string;
   photo: string | null;
   is_staff: boolean;
+  strava_connected: boolean;
+  strava_athlete_id: number | null;
+}
+
+export interface StravaActivity {
+  id: number;
+  name: string;
+  type: string;
+  start_date_local: string;
+  distance: number;   // km
+  elapsed_time: number;  // segundos
+  moving_time: number;   // segundos
 }
 
 export interface Edition {

@@ -37,3 +37,23 @@ export async function logout(): Promise<void> {
   await SecureStore.deleteItemAsync('access_token');
   await SecureStore.deleteItemAsync('refresh_token');
 }
+
+export async function getStravaAuthUrl(redirectUri: string): Promise<{ auth_url: string; state: string }> {
+  const { data } = await client.get<{ auth_url: string; state: string }>(
+    `/auth/strava/auth-url/?redirect_uri=${encodeURIComponent(redirectUri)}`
+  );
+  return data;
+}
+
+export async function connectStrava(code: string, redirectUri: string, state: string): Promise<{ strava_athlete_id: number }> {
+  const { data } = await client.post<{ strava_athlete_id: number }>('/auth/strava/connect/', {
+    code,
+    redirect_uri: redirectUri,
+    state,
+  });
+  return data;
+}
+
+export async function disconnectStrava(): Promise<void> {
+  await client.post('/auth/strava/disconnect/');
+}

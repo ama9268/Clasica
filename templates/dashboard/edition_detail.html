@@ -53,6 +53,7 @@
               <th class="text-center px-6 py-3">Tiempo</th>
               <th class="text-center px-6 py-3">Score</th>
               <th class="text-center px-6 py-3">Válida</th>
+              <th class="text-center px-6 py-3 hidden sm:table-cell">Fuente</th>
               <th class="text-center px-6 py-3 hidden sm:table-cell">Pos.</th>
               <th class="text-center px-6 py-3">Acción</th>
             </tr>
@@ -79,6 +80,17 @@
                     <span class="text-green-600 font-bold">✓</span>
                   {% else %}
                     <span class="text-stone-300 font-bold">✗</span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-stone-200 text-xs">—</span>
+                {% endif %}
+              </td>
+              <td class="px-6 py-4 text-center hidden sm:table-cell">
+                {% if p.activity %}
+                  {% if p.activity.source == 'strava' %}
+                    <span class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 bg-[#FC4C02] text-white">Strava</span>
+                  {% else %}
+                    <span class="text-xs text-stone-400 uppercase tracking-widest">GPS</span>
                   {% endif %}
                 {% else %}
                   <span class="text-stone-200 text-xs">—</span>
@@ -189,10 +201,11 @@
         {% for item in all_media %}
         <div class="card-classic p-0 overflow-hidden group relative">
           {% if item.media_type == 'photo' %}
-            <div class="aspect-square overflow-hidden">
+            <button data-lb-btn onclick="lbOpenByBtn(this)"
+                    class="block w-full aspect-square overflow-hidden cursor-zoom-in">
               <img src="{{ item.photo.url }}" alt="{{ item.caption }}"
-                   class="w-full h-full object-cover">
-            </div>
+                   class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
+            </button>
           {% else %}
             <div class="aspect-square bg-navy flex flex-col items-center justify-center gap-2">
               <svg class="w-10 h-10 text-crimson" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -242,4 +255,70 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% with all_photos=object.media.all %}
+{% if all_photos %}
+<!-- Lightbox dashboard -->
+<div id="lb-overlay"
+     class="fixed inset-0 z-[999] bg-black/90 flex items-center justify-center hidden"
+     onclick="lbClose()">
+  <button onclick="lbClose()" aria-label="Cerrar"
+          class="absolute top-4 right-4 text-white/70 hover:text-white text-3xl leading-none z-10">✕</button>
+  <div class="relative flex items-center gap-4 max-w-[95vw] max-h-[95vh]" onclick="event.stopPropagation()">
+    <button id="lb-prev" onclick="lbNav(-1)" aria-label="Anterior"
+            class="flex-shrink-0 text-white/60 hover:text-white text-4xl leading-none px-2 select-none">&#8249;</button>
+    <div class="flex flex-col items-center gap-3">
+      <img id="lb-img" src="" alt="" class="max-w-[80vw] max-h-[80vh] object-contain shadow-2xl">
+      <p id="lb-caption" class="text-white/70 text-sm text-center hidden"></p>
+    </div>
+    <button id="lb-next" onclick="lbNav(1)" aria-label="Siguiente"
+            class="flex-shrink-0 text-white/60 hover:text-white text-4xl leading-none px-2 select-none">&#8250;</button>
+  </div>
+</div>
+<script>
+const lbPhotos = [
+  {% for item in all_photos %}{% if item.media_type == 'photo' %}
+  { src: "{{ item.photo.url }}", caption: "{{ item.caption|escapejs }}" },
+  {% endif %}{% endfor %}
+];
+let lbIndex = 0;
+function lbOpenByBtn(btn) {
+  const btns = Array.from(document.querySelectorAll('[data-lb-btn]'));
+  lbOpen(btns.indexOf(btn));
+}
+function lbOpen(i) {
+  lbIndex = i;
+  lbRender();
+  document.getElementById('lb-overlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function lbClose() {
+  document.getElementById('lb-overlay').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+function lbNav(dir) {
+  lbIndex = (lbIndex + dir + lbPhotos.length) % lbPhotos.length;
+  lbRender();
+}
+function lbRender() {
+  const p = lbPhotos[lbIndex];
+  document.getElementById('lb-img').src = p.src;
+  document.getElementById('lb-img').alt = p.caption;
+  const cap = document.getElementById('lb-caption');
+  if (p.caption) { cap.textContent = p.caption; cap.classList.remove('hidden'); }
+  else { cap.classList.add('hidden'); }
+  document.getElementById('lb-prev').style.visibility = lbPhotos.length > 1 ? '' : 'hidden';
+  document.getElementById('lb-next').style.visibility = lbPhotos.length > 1 ? '' : 'hidden';
+}
+document.addEventListener('keydown', e => {
+  if (document.getElementById('lb-overlay').classList.contains('hidden')) return;
+  if (e.key === 'Escape') lbClose();
+  if (e.key === 'ArrowLeft')  lbNav(-1);
+  if (e.key === 'ArrowRight') lbNav(1);
+});
+</script>
+{% endif %}
+{% endwith %}
 {% endblock %}

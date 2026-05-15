@@ -16,4 +16,12 @@ urlpatterns = [
     path("route-variants/", views.RouteVariantListAPIView.as_view(), name="route-variant-list"),
     path("classifications/general/", views.GeneralClassificationAPIView.as_view(), name="api_general"),
     path("stats/user/<int:pk>/", views.UserStatsAPIView.as_view(), name="api_user_stats"),
+
+    # Strava
+    path("auth/strava/auth-url/", views.StravaAuthUrlAPIView.as_view(), name="strava-auth-url"),
+    path("auth/strava/connect/", views.StravaConnectAPIView.as_view(), name="strava-connect"),
+    path("auth/strava/disconnect/", views.StravaDisconnectAPIView.as_view(), name="strava-disconnect"),
+    path("editions/<int:pk>/strava-activities/", views.StravaActivitiesAPIView.as_view(), name="strava-activities"),
+    path("editions/<int:pk>/activity/strava/", views.StravaActivityUploadAPIView.as_view(), name="strava-activity-upload"),
+    path("strava/webhook/", views.StravaWebhookAPIView.as_view(), name="strava-webhook"),
 ]

@@ -320,11 +320,11 @@
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
       {% for photo in media_photos %}
-      <a href="{{ photo.photo.url }}" target="_blank"
-         class="block aspect-square overflow-hidden border border-stone-200 hover:border-crimson transition-colors group">
+      <button onclick="lbOpen({{ forloop.counter0 }})"
+              class="block aspect-square overflow-hidden border border-stone-200 hover:border-crimson transition-colors group w-full cursor-zoom-in">
         <img src="{{ photo.photo.url }}" alt="{{ photo.caption }}"
              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-      </a>
+      </button>
       {% endfor %}
     </div>
   </div>
@@ -511,6 +511,74 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     }
   });
+});
+</script>
+{% endif %}
+
+{% if media_photos %}
+<!-- Lightbox -->
+<div id="lb-overlay"
+     class="fixed inset-0 z-[999] bg-black/90 flex items-center justify-center hidden"
+     onclick="lbClose()">
+
+  <!-- Botón cerrar -->
+  <button onclick="lbClose()" aria-label="Cerrar"
+          class="absolute top-4 right-4 text-white/70 hover:text-white text-3xl leading-none z-10">✕</button>
+
+  <!-- Imagen -->
+  <div class="relative flex items-center gap-4 max-w-[95vw] max-h-[95vh]" onclick="event.stopPropagation()">
+
+    <button id="lb-prev" onclick="lbNav(-1)" aria-label="Anterior"
+            class="flex-shrink-0 text-white/60 hover:text-white text-4xl leading-none px-2 select-none">&#8249;</button>
+
+    <div class="flex flex-col items-center gap-3">
+      <img id="lb-img" src="" alt=""
+           class="max-w-[80vw] max-h-[80vh] object-contain shadow-2xl">
+      <p id="lb-caption" class="text-white/70 text-sm text-center hidden"></p>
+    </div>
+
+    <button id="lb-next" onclick="lbNav(1)" aria-label="Siguiente"
+            class="flex-shrink-0 text-white/60 hover:text-white text-4xl leading-none px-2 select-none">&#8250;</button>
+  </div>
+</div>
+
+<script>
+const lbPhotos = [
+  {% for photo in media_photos %}
+  { src: "{{ photo.photo.url }}", caption: "{{ photo.caption|escapejs }}" }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+];
+let lbIndex = 0;
+
+function lbOpen(i) {
+  lbIndex = i;
+  lbRender();
+  document.getElementById('lb-overlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function lbClose() {
+  document.getElementById('lb-overlay').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+function lbNav(dir) {
+  lbIndex = (lbIndex + dir + lbPhotos.length) % lbPhotos.length;
+  lbRender();
+}
+function lbRender() {
+  const p = lbPhotos[lbIndex];
+  document.getElementById('lb-img').src = p.src;
+  document.getElementById('lb-img').alt = p.caption;
+  const cap = document.getElementById('lb-caption');
+  if (p.caption) { cap.textContent = p.caption; cap.classList.remove('hidden'); }
+  else { cap.classList.add('hidden'); }
+  document.getElementById('lb-prev').style.visibility = lbPhotos.length > 1 ? '' : 'hidden';
+  document.getElementById('lb-next').style.visibility = lbPhotos.length > 1 ? '' : 'hidden';
+}
+document.addEventListener('keydown', e => {
+  if (document.getElementById('lb-overlay').classList.contains('hidden')) return;
+  if (e.key === 'Escape') lbClose();
+  if (e.key === 'ArrowLeft')  lbNav(-1);
+  if (e.key === 'ArrowRight') lbNav(1);
 });
 </script>
 {% endif %}

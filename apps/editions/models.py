@@ -183,6 +183,12 @@ class EditionMedia(models.Model):
         verbose_name_plural = "Media"
         ordering = ["order", "uploaded_at"]
 
+    def save(self, *args, **kwargs):
+        if self.photo and not self.photo._committed:
+            from clasica_project.image_utils import optimize_image
+            self.photo = optimize_image(self.photo)
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return f"{self.get_media_type_display()} — {self.edition}"
 

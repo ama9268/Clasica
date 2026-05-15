@@ -4,16 +4,20 @@ import {
   ActivityIndicator, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
 import { getUserStats } from '@/api/classifications';
+import { getStravaAuthUrl, disconnectStrava } from '@/api/auth';
+import client from '@/api/client';
 import type { UserStats } from '@/types';
 
 export default function PerfilScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [stravaLoading, setStravaLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -27,6 +31,45 @@ export default function PerfilScreen() {
     Alert.alert('Cerrar sesión', '¿Seguro?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Salir', style: 'destructive', onPress: logout },
+    ]);
+  }
+
+  async function handleStravaConnect() {
+    try {
+      setStravaLoading(true);
+      // Strava solo acepta redirect URIs http/https, usamos el callback web del servidor.
+      // El servidor guarda los tokens al completar el OAuth; el móvil solo refresca el perfil.
+      console.log('API base:', client.defaults.baseURL);
+      const { auth_url } = await getStravaAuthUrl('web');
+      await WebBrowser.openBrowserAsync(auth_url);
+      // Después de que el usuario cierra el navegador, refrescamos el perfil
+      await refreshUser();
+    } catch (err) {
+      console.error('Strava connect error:', err);
+      Alert.alert('Error', 'No se pudo conectar con Strava. Inténtalo de nuevo.');
+    } finally {
+      setStravaLoading(false);
+    }
+  }
+
+  async function handleStravaDisconnect() {
+    Alert.alert('Desconectar Strava', '¿Quieres desconectar tu cuenta de Strava?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Desconectar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setStravaLoading(true);
+            await disconnectStrava();
+            await refreshUser();
+          } catch {
+            Alert.alert('Error', 'No se pudo desconectar Strava.');
+          } finally {
+            setStravaLoading(false);
+          }
+        },
+      },
     ]);
   }
 
@@ -95,9 +138,33 @@ export default function PerfilScreen() {
         </>
       ) : null}
 
+      {/* Bloque Strava */}
+      <View style={s.stravaCard}>
+        <Text style={s.sectionTitle}>STRAVA</Text>
+        {user.strava_connected ? (
+          <View style={s.stravaConnected}>
+            <Ionicons name="checkmark-circle" size={18} color="#15803d" />
+            <View style={{ flex: 1 }}>
+              <Text style={s.stravaStatus}>Cuenta conectada</Text>
+              <Text style={s.stravaId}>Athlete ID: {user.strava_athlete_id}</Text>
+            </View>
+            <TouchableOpacity onPress={handleStravaDisconnect} disabled={stravaLoading}>
+              <Text style={s.stravaUnlink}>Desconectar</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={s.stravaBtn} onPress={handleStravaConnect} disabled={stravaLoading}>
+            {stravaLoading
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Text style={s.stravaBtnText}>Conectar con Strava</Text>
+            }
+          </TouchableOpacity>
+        )}
+      </View>
+
       {user.is_staff && (
-        <TouchableOpacity 
-          style={s.adminBtn} 
+        <TouchableOpacity
+          style={s.adminBtn}
           onPress={() => router.push('/admin')}
         >
           <Ionicons name="shield-checkmark-outline" size={18} color="#1a2744" />
@@ -138,4 +205,11 @@ const s = StyleSheet.create({
   logoutText: { fontSize: 13, fontWeight: '700', color: '#8b1a1a', letterSpacing: 1 },
   adminBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 32, padding: 14, backgroundColor: '#f5f0e8', borderWidth: 1, borderColor: '#1a2744' },
   adminText: { fontSize: 13, fontWeight: '700', color: '#1a2744', letterSpacing: 1 },
+  stravaCard: { marginHorizontal: 16, marginTop: 24, backgroundColor: '#fff', padding: 16 },
+  stravaConnected: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stravaStatus: { fontSize: 13, fontWeight: '600', color: '#15803d' },
+  stravaId: { fontSize: 11, color: '#9ca3af', marginTop: 1 },
+  stravaUnlink: { fontSize: 11, fontWeight: '700', color: '#8b1a1a', textDecorationLine: 'underline' },
+  stravaBtn: { backgroundColor: '#FC4C02', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, marginTop: 8 },
+  stravaBtnText: { color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
 });
