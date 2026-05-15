@@ -88,7 +88,7 @@ class EditionDetailView(LoginRequiredMixin, DetailView):
 
         # Weather forecast (AEMET) — solo para ediciones abiertas
         ctx["weather"] = (
-            get_weather_forecast_for_edition(edition.date)
+            get_weather_forecast_for_edition(edition.date, start_hour=edition.start_time.hour)
             if edition.status == Edition.STATUS_OPEN else None
         )
 

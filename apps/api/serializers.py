@@ -115,7 +115,7 @@ class EditionDetailSerializer(EditionSerializer):
     def get_weather(self, obj):
         if obj.status != Edition.STATUS_OPEN:
             return None
-        return get_weather_forecast_for_edition(obj.date)
+        return get_weather_forecast_for_edition(obj.date, start_hour=obj.start_time.hour)
 
     def get_participants_count(self, obj) -> int:
         return obj.participations.count()
