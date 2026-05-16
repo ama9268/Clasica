@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
+from .throttles import RegisterRateThrottle, ActivityUploadRateThrottle, WebhookRateThrottle
+
 from apps.accounts.models import UserProfile
 from apps.editions.models import Edition
 from apps.participations.models import Participation, Activity
@@ -14,6 +16,7 @@ from .serializers import (
     UserSerializer, UserProfileSerializer, EditionSerializer,
     EditionDetailSerializer, ClassificationSerializer, UserStatsSerializer,
     EditionWriteSerializer, EditionMediaSerializer, RouteVariantSerializer,
+    ActivityUploadSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -21,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [RegisterRateThrottle]
 
     def post(self, request):
         serializer = UserSerializer(data=request.data)
@@ -48,7 +52,7 @@ class EditionListAPIView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request):
-        editions = Edition.objects.all().order_by("-date")
+        editions = Edition.objects.select_related("route_variant").order_by("-date")
         return Response(EditionSerializer(editions, many=True).data)
 
     def post(self, request):
@@ -73,7 +77,10 @@ class EditionDetailAPIView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request, pk):
-        edition = get_object_or_404(Edition, pk=pk)
+        edition = get_object_or_404(
+            Edition.objects.select_related("route_variant").prefetch_related("media"),
+            pk=pk,
+        )
         return Response(EditionDetailSerializer(edition, context={"request": request}).data)
 
     def patch(self, request, pk):
@@ -121,9 +128,10 @@ class ActivityUploadAPIView(APIView):
     POST { track_geojson: LineString GeoJSON, elapsed_time_seconds: int }
     """
     permission_classes = [IsAuthenticated]
+    throttle_classes = [ActivityUploadRateThrottle]
 
     def post(self, request, pk):
-        from django.contrib.gis.geos import LineString, GEOSException
+        from django.contrib.gis.geos import LineString
         from apps.participations.tasks import validate_track
 
         edition = get_object_or_404(Edition, pk=pk)
@@ -136,21 +144,15 @@ class ActivityUploadAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        elapsed = request.data.get("elapsed_time_seconds")
-        track_geojson = request.data.get("track_geojson")
-        avg_speed = request.data.get("average_moving_speed")
+        serializer = ActivityUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        if not elapsed or not track_geojson:
-            return Response(
-                {"detail": "elapsed_time_seconds y track_geojson son obligatorios."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            coords = track_geojson["coordinates"]
-            track_geometry = LineString(coords, srid=4326)
-        except (KeyError, TypeError, GEOSException):
-            return Response({"detail": "track_geojson inválido."}, status=status.HTTP_400_BAD_REQUEST)
+        data = serializer.validated_data
+        elapsed = data["elapsed_time_seconds"]
+        avg_speed = data.get("average_moving_speed")
+        coords = data["track_geojson"]["coordinates"]
+        track_geometry = LineString(coords, srid=4326)
 
         score, is_valid = 0.0, False
         if edition.route_geometry:
@@ -160,10 +162,10 @@ class ActivityUploadAPIView(APIView):
         activity, _ = Activity.objects.update_or_create(
             participation=participation,
             defaults={
-                "elapsed_time_seconds": int(elapsed),
+                "elapsed_time_seconds": elapsed,
                 "is_valid": is_valid,
                 "validation_score": score,
-                "average_moving_speed": float(avg_speed) if avg_speed is not None else None,
+                "average_moving_speed": avg_speed,
             },
         )
 
@@ -452,6 +454,7 @@ class StravaWebhookAPIView(APIView):
     POST /strava/webhook/ → recepción de eventos push (fase 2)
     """
     permission_classes = []  # Strava no envía credenciales de usuario
+    throttle_classes = [WebhookRateThrottle]
 
     def get(self, request):
         hub_mode = request.query_params.get("hub.mode")
@@ -468,3 +471,42 @@ class StravaWebhookAPIView(APIView):
         # Fase 2: procesar eventos push de Strava
         logger.info("Strava webhook event: %s", request.data)
         return Response({"status": "ok"})
+
+
+class HealthCheckAPIView(APIView):
+    """
+    GET /api/health/ — comprueba BD y caché.
+    Usado por Dokploy/Traefik para validar que el contenedor está listo.
+    Devuelve 200 si todo OK, 503 si alguna dependencia falla.
+    """
+    permission_classes = [AllowAny]
+    throttle_classes = []  # sin límite: Dokploy llama cada 30 s
+
+    def get(self, request):
+        checks = {}
+
+        # Base de datos
+        try:
+            from django.db import connection
+            connection.ensure_connection()
+            checks["database"] = "ok"
+        except Exception as exc:
+            logger.error("Health check DB failed: %s", exc)
+            checks["database"] = "error"
+
+        # Caché (Redis en producción, LocMemCache en desarrollo/tests)
+        try:
+            from django.core.cache import cache
+            cache.set("health_check_probe", "1", timeout=5)
+            assert cache.get("health_check_probe") == "1"
+            checks["cache"] = "ok"
+        except Exception as exc:
+            logger.error("Health check cache failed: %s", exc)
+            checks["cache"] = "error"
+
+        http_status = (
+            status.HTTP_200_OK
+            if all(v == "ok" for v in checks.values())
+            else status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+        return Response({"status": "ok" if http_status == 200 else "degraded", **checks}, status=http_status)
