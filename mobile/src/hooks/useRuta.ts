@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { GeoJSONLineString, RutaPoint } from '../types';
 
 const OFFLINE_QUEUE_KEY = '@clasica/offline_positions';
-const CAPTURE_INTERVAL_MS = 60_000;
+const CAPTURE_INTERVAL_MS = 5_000;
 
 export interface RutaState {
   tracking: boolean;
