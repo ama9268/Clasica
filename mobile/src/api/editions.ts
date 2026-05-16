@@ -1,5 +1,5 @@
 import client from './client';
-import type { Edition, EditionDetail, ActivityUploadResult, GeoJSONLineString, RouteVariant } from '../types';
+import type { Edition, EditionDetail, ActivityUploadResult, GeoJSONLineString, RouteVariant, StravaActivity } from '../types';
 
 export async function getEditions(): Promise<Edition[]> {
   const { data } = await client.get<Edition[]>('/editions/');
@@ -61,5 +61,21 @@ export async function deleteMedia(mediaId: number): Promise<void> {
 
 export async function getRouteVariants(): Promise<RouteVariant[]> {
   const { data } = await client.get<RouteVariant[]>('/route-variants/');
+  return data;
+}
+
+export async function getStravaActivities(editionId: number): Promise<StravaActivity[]> {
+  const { data } = await client.get<StravaActivity[]>(`/editions/${editionId}/strava-activities/`);
+  return data;
+}
+
+export async function uploadStravaActivity(
+  editionId: number,
+  stravaActivityId: number
+): Promise<ActivityUploadResult> {
+  const { data } = await client.post<ActivityUploadResult>(
+    `/editions/${editionId}/activity/strava/`,
+    { strava_activity_id: stravaActivityId }
+  );
   return data;
 }
