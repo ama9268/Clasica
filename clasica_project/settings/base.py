@@ -114,11 +114,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Redis
 REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
 
-# Cache — DB 1 aislada de Celery/Channels (DB 0); usada por DRF throttling
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": REDIS_URL.rsplit("/", 1)[0] + "/1",
+        "LOCATION": REDIS_URL,
     }
 }
 
