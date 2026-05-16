@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import MapView, { Marker, Polyline, Region } from 'react-native-maps';
-import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTracking } from '@/hooks/useTracking';
@@ -13,37 +12,12 @@ export default function LiveTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const router = useRouter();
-  const { positions, connected, sendPosition } = useTracking(Number(id));
+  const { positions, connected } = useTracking(Number(id));
   const [edition, setEdition] = useState<EditionDetail | null>(null);
-  const [tracking, setTracking] = useState(false);
-  const locationSub = useRef<Location.LocationSubscription | null>(null);
-  const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
     getEdition(Number(id)).then(setEdition).catch(() => {});
-    return () => { locationSub.current?.remove(); };
   }, [id]);
-
-  async function startTracking() {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permisos', 'Necesitamos acceso a tu ubicación para el tracking.');
-      return;
-    }
-    setTracking(true);
-    locationSub.current = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 10 },
-      (loc) => {
-        sendPosition(loc.coords.latitude, loc.coords.longitude, (loc.coords.speed ?? 0) * 3.6);
-      }
-    );
-  }
-
-  function stopTracking() {
-    locationSub.current?.remove();
-    locationSub.current = null;
-    setTracking(false);
-  }
 
   const routeCoords = edition?.route_geojson?.coordinates.map(([lng, lat]) => ({
     latitude: lat,
@@ -67,7 +41,7 @@ export default function LiveTrackingScreen() {
 
   return (
     <View style={s.container}>
-      <MapView ref={mapRef} style={s.map} initialRegion={initialRegion}>
+      <MapView style={s.map} initialRegion={initialRegion}>
         {routeCoords.length > 0 && (
           <Polyline coordinates={routeCoords} strokeColor="#8b1a1a" strokeWidth={3} />
         )}
@@ -93,18 +67,6 @@ export default function LiveTrackingScreen() {
         <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={20} color="#1a2744" />
         </TouchableOpacity>
-
-        {!tracking ? (
-          <TouchableOpacity style={s.trackBtn} onPress={startTracking}>
-            <Ionicons name="navigate" size={18} color="#f5f0e8" />
-            <Text style={s.trackBtnText}>INICIAR TRACKING</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={[s.trackBtn, s.trackBtnStop]} onPress={stopTracking}>
-            <Ionicons name="stop" size={18} color="#f5f0e8" />
-            <Text style={s.trackBtnText}>DETENER</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </View>
   );
@@ -129,12 +91,4 @@ const s = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, elevation: 3,
   },
-  trackBtn: {
-    flex: 1, backgroundColor: '#8b1a1a', flexDirection: 'row',
-    alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 14,
-    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, elevation: 3,
-  },
-  trackBtnStop: { backgroundColor: '#374151' },
-  trackBtnText: { color: '#f5f0e8', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
 });
