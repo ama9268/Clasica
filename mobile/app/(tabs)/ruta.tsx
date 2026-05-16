@@ -79,7 +79,7 @@ export default function RutaScreen() {
   const [registering, setRegistering] = useState(false);
 
   // WebSocket live tracking (other participants)
-  const { positions, connected, sendPosition } = useTracking(edition?.id ?? 0);
+  const { positions, connected, sendPosition, disconnect } = useTracking(edition?.id ?? 0);
 
   // GPS ruta hook
   const { state: ruta, startTracking, stopTracking } = useRuta(sendPosition);
@@ -162,6 +162,7 @@ export default function RutaScreen() {
           style: 'destructive',
           onPress: async () => {
             const rutaResult = stopTracking();
+            disconnect(); // cerrar WS inmediatamente
             if (!edition) return;
 
             // ── Flujo Strava primero ──────────────────────────────────────

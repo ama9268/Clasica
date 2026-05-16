@@ -48,5 +48,10 @@ export function useTracking(editionId: number) {
     }
   }
 
-  return { positions, connected, sendPosition };
+  function disconnect() {
+    ws.current?.close();
+    ws.current = null;
+  }
+
+  return { positions, connected, sendPosition, disconnect };
 }
