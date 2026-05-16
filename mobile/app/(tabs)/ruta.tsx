@@ -152,57 +152,43 @@ export default function RutaScreen() {
 
   // ── Finish route ──
   async function handleStop() {
-    Alert.alert(
-      'Finalizar ruta',
-      '¿Seguro que quieres finalizar? Se subirá el track al servidor.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Finalizar',
-          style: 'destructive',
-          onPress: async () => {
-            const rutaResult = stopTracking();
-            disconnect(); // cerrar WS inmediatamente
-            if (!edition) return;
+    const rutaResult = stopTracking();
+    disconnect(); // cerrar WS inmediatamente
+    if (!edition) return;
 
-            // ── Flujo Strava primero ──────────────────────────────────────
-            if (user?.strava_connected) {
-              setScreenState('uploading'); // "Buscando en Strava…"
-              try {
-                const activities = await getStravaActivities(edition.id);
-                if (activities.length > 0) {
-                  // Auto-seleccionar la más reciente (primera de la lista)
-                  const latest = activities[0];
-                  const res = await uploadStravaActivity(edition.id, latest.id);
-                  setResult(res);
-                  setScreenState('done');
-                  return;
-                }
-                // Strava no tiene actividades hoy → fallback GPS
-              } catch {
-                // Error de Strava → fallback GPS
-              }
-            }
+    // ── Flujo Strava primero ──────────────────────────────────────
+    if (user?.strava_connected) {
+      setScreenState('uploading'); // "Buscando en Strava…"
+      try {
+        const activities = await getStravaActivities(edition.id);
+        if (activities.length > 0) {
+          const latest = activities[0];
+          const res = await uploadStravaActivity(edition.id, latest.id);
+          setResult(res);
+          setScreenState('done');
+          return;
+        }
+        Alert.alert('Strava', 'No hay actividades Strava de hoy. Usando track GPS propio.');
+      } catch (err: any) {
+        Alert.alert('Strava error', err?.response?.data?.detail ?? err?.message ?? 'Error desconocido');
+      }
+    }
 
-            // ── Fallback: track GPS propio ────────────────────────────────
-            if (!rutaResult) {
-              Alert.alert('Sin datos', 'No hay suficientes puntos GPS para registrar la ruta.');
-              setScreenState('ready');
-              return;
-            }
-            setScreenState('uploading_gps');
-            try {
-              const res = await uploadActivity(edition.id, rutaResult);
-              setResult(res);
-              setScreenState('done');
-            } catch {
-              Alert.alert('Error', 'No se pudo subir el track. Inténtalo de nuevo.');
-              setScreenState('ready');
-            }
-          },
-        },
-      ]
-    );
+    // ── Fallback: track GPS propio ────────────────────────────────
+    if (!rutaResult) {
+      Alert.alert('Sin datos GPS', 'Inicia el track y espera al menos 10 s antes de finalizar.');
+      setScreenState('ready');
+      return;
+    }
+    setScreenState('uploading_gps');
+    try {
+      const res = await uploadActivity(edition.id, rutaResult);
+      setResult(res);
+      setScreenState('done');
+    } catch (err: any) {
+      Alert.alert('Error GPS', err?.response?.data?.detail ?? err?.message ?? 'No se pudo subir el track.');
+      setScreenState('ready');
+    }
   }
 
   // ── Render ──
