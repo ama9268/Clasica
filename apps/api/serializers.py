@@ -140,15 +140,25 @@ class UserStatsSerializer(serializers.ModelSerializer):
         fields = ["id", "full_name", "username", "club", "photo",
                   "total_participations", "total_valid", "participations"]
 
+    def _participations_list(self):
+        """Evalúa el queryset una sola vez y lo cachea en context."""
+        if "_participations_list" not in self.context:
+            self.context["_participations_list"] = list(self.context["participations"])
+        return self.context["_participations_list"]
+
     def get_total_participations(self, obj) -> int:
-        return self.context["participations"].count()
+        return len(self._participations_list())
 
     def get_total_valid(self, obj) -> int:
-        return self.context["participations"].filter(activity__is_valid=True).count()
+        # RelatedObjectDoesNotExist hereda de AttributeError → hasattr lo captura
+        return sum(
+            1 for p in self._participations_list()
+            if hasattr(p, "activity") and p.activity.is_valid
+        )
 
     def get_participations(self, obj):
         result = []
-        for p in self.context["participations"]:
+        for p in self._participations_list():
             entry = {
                 "edition_id": p.edition.pk,
                 "edition_name": p.edition.name,
@@ -174,3 +184,41 @@ class UserStatsSerializer(serializers.ModelSerializer):
                 pass
             result.append(entry)
         return result
+
+
+class ActivityUploadSerializer(serializers.Serializer):
+    # Un ciclista no puede terminar en menos de 1 s ni en más de 18 h (64800 s)
+    elapsed_time_seconds = serializers.IntegerField(min_value=1, max_value=64800)
+    # Velocidad media en km/h: mínimo razonable 0.1, máximo sprint ~120
+    average_moving_speed = serializers.FloatField(
+        min_value=0.1, max_value=120.0, required=False, allow_null=True
+    )
+    track_geojson = serializers.DictField()
+
+    def validate_track_geojson(self, value):
+        from django.contrib.gis.geos import LineString, GEOSException
+
+        if value.get("type") != "LineString":
+            raise serializers.ValidationError("Debe ser de tipo LineString.")
+
+        coords = value.get("coordinates")
+        if not isinstance(coords, list) or len(coords) < 2:
+            raise serializers.ValidationError("Se necesitan al menos 2 coordenadas.")
+
+        for coord in coords:
+            if not isinstance(coord, (list, tuple)) or len(coord) < 2:
+                raise serializers.ValidationError("Cada coordenada debe ser [lon, lat].")
+            lon, lat = coord[0], coord[1]
+            if not isinstance(lon, (int, float)) or not isinstance(lat, (int, float)):
+                raise serializers.ValidationError("Las coordenadas deben ser numéricas.")
+            if not (-180 <= lon <= 180) or not (-90 <= lat <= 90):
+                raise serializers.ValidationError(
+                    f"Coordenada fuera de rango: [{lon}, {lat}]."
+                )
+
+        try:
+            LineString(coords, srid=4326)
+        except GEOSException as exc:
+            raise serializers.ValidationError(f"Geometría inválida: {exc}")
+
+        return value

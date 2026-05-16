@@ -114,6 +114,14 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Redis
 REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
 
+# Cache — DB 1 aislada de Celery/Channels (DB 0); usada por DRF throttling
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL.rsplit("/", 1)[0] + "/1",
+    }
+}
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -143,6 +151,19 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "30/minute",
+        "user": "100/minute",
+        "login": "10/minute",
+        "register": "5/hour",
+        "token_refresh": "20/minute",
+        "activity_upload": "10/hour",
+        "webhook": "200/minute",
+    },
 }
 
 # JWT
@@ -190,3 +211,15 @@ if os.name == 'nt':
     if osgeo_path.exists():
         GDAL_LIBRARY_PATH = str(osgeo_path / "gdal.dll")
         GEOS_LIBRARY_PATH = str(osgeo_path / "geos_c.dll")
+
+# Sentry — solo activo si SENTRY_DSN está configurado en el entorno
+SENTRY_DSN = env("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment="production" if not DEBUG else "development",
+        # 10 % de las transacciones se envían para Performance Monitoring
+        traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.1),
+        send_default_pii=False,  # GDPR: no enviar datos personales automáticamente
+    )

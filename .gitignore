@@ -46,3 +46,4 @@ mobile/dist/
 # Temporal / agentes
 scratch/
 .agent/
+.claude/

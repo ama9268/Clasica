@@ -1,50 +1,111 @@
 # Recomendaciones de Mejora y Rendimiento
 
-Este archivo contiene un listado de recomendaciones de refactorización y arquitectura para mantener el proyecto rápido, escalable y profesional.
+Listado vivo de mejoras arquitectónicas, de seguridad y rendimiento. Ordenado por urgencia.
+Las marcadas con **🔴 URGENTE** tienen impacto directo en producción y deben implementarse pronto.
 
-- [x] **Índices Espaciales:** Implementar índices espaciales (SPGiST/GiST) estableciendo `spatial_index=True` (o verificándolo) en las geometrías de `Edition` y `StravaActivity` para maximizar el rendimiento.
-- [x] **Integrar `rest_framework_gis`:** Refactorizar el serializador de la API para devolver GeoJSON de forma nativa utilizando `GeoFeatureModelSerializer` (o `GeometryField`), en lugar de utilizar un `@property` manual en los modelos.
-- [ ] **Procesamiento de GPX Asíncrono:** Mover el parseo del archivo GPX (`_parse_gpx`) desde el hilo principal del Dashboard hacia una cola de tareas en segundo plano (ej. Celery, Redis) para evitar cuellos de botella en la interfaz con tracks pesados.
-- [ ] **Downsampling del Perfil de Elevación:** Implementar un algoritmo (ej. guardar 1 de cada N puntos) antes de guardar la elevación en BD, para que Chart.js cargue el perfil más rápido en móviles si los GPX son muy pesados.
-- [ ] **Caché Proactiva de AEMET:** Usar Celery Beat para recolectar la previsión de AEMET en background cada N horas, en lugar de esperar a que el usuario cargue la página y deba esperar a la API externa.
-- [ ] **Lazy Loading de Gráficos/Mapas:** Inicializar Leaflet y Chart.js usando `IntersectionObserver` solo cuando el usuario haga scroll hacia ellos, ahorrando ancho de banda.
-- [ ] **Validación de Geometría Proactiva:** Implementar un validador en el modelo `Activity` que asegure que el `track_geometry` no contenga puntos inválidos o ruidosos mediante un `pre_save hook`.
-- [ ] **Seguridad de API de Tracking:** Implementar Rate Limiting y autenticación JWT estricta en los endpoints de recepción de coordenadas desde la App móvil.
-- [ ] **Optimización de Consultas (Prefetch):** Asegurar el uso de `prefetch_related` en todas las vistas que listen inscripciones para evitar consultas N+1 al acceder a las actividades.
-- [ ] **Modo Offline en la App:** Diseñar el sistema de sincronización para que la App móvil pueda guardar coordenadas localmente y subirlas por lotes (batch) cuando detecte conexión estable, mejorando la fiabilidad en zonas de montaña.
-- [ ] **Migración a la Nueva Arquitectura:** Revisar la compatibilidad de todos los módulos nativos con la Nueva Arquitectura de React Native (habilitada por defecto en SDK 54).
-- [ ] **Optimización de Bundle:** Utilizar `npx expo export` para analizar el tamaño del bundle y reducir dependencias innecesarias en el cliente móvil.
-- [ ] **EAS Update:** Configurar `expo-updates` para permitir actualizaciones Over-The-Air (OTA) sin necesidad de que el usuario descargue una nueva versión de la tienda para cambios menores.
-- [ ] **GitHub Actions para Despliegue Automático:** Configurar un workflow que automatice el despliegue al servidor cada vez que se realice un push o merge a la rama `deploy`.
-- [ ] **Reglas de Protección de Rama:** Proteger la rama `deploy` para evitar pushes directos accidentales, requiriendo Pull Requests o aprobaciones.
-- [ ] **Etiquetado de Versiones (Tags):** Utilizar etiquetas de Git (ej. `v1.0.0`) en la rama `deploy` para marcar hitos importantes de producción y facilitar rollbacks.
-- [x] **Optimización de Docker (.dockerignore):** Crear archivo `.dockerignore` para excluir archivos innecesarios (venv, .git) y reducir el peso de la imagen de construcción.
-- [x] **Estabilidad de Imagen Base:** Cambiar a `python:3.12-slim` para asegurar compatibilidad con wheels precompilados (evitando compilación lenta en 3.13).
-- [x] **Sincronización de Rama `deploy`:** Mantener la rama `deploy` sincronizada con `main` únicamente cuando se desee realizar un despliegue a producción.
-- [x] **Resolución de Conflictos de Puerto:** Usar el puerto 8002 para evitar colisiones con otros servicios en el mismo VPS.
-- [ ] **Multi-stage Builds:** Implementar construcción multi-etapa en el Dockerfile para separar las dependencias de compilación del runtime final.
-- [ ] **Health Checks en Docker:** Añadir `healthcheck` en `docker-compose.yml` para que Traefik/Dokploy solo envíen tráfico si la app está lista.
-- [ ] **Endpoint de Salud en Django:** Crear `/api/health/` para validar conexiones críticas (DB, Redis) automáticamente.
-- [ ] **Optimización de Daphne Workers:** Configurar el número de workers/hilos en el entrypoint para maximizar el rendimiento del VPS.
-- [ ] **Validación de Fortaleza de Contraseña**: Implementar un medidor de fortaleza de contraseña en tiempo real en el frontend para mejorar la seguridad del usuario.
-- [ ] **Autenticación de Dos Factores (2FA)**: Añadir soporte para 2FA para proteger las cuentas de usuario contra accesos no autorizados.
-- [ ] **Notificaciones de Seguridad**: Configurar el envío automático de correos electrónicos cuando se realicen cambios sensibles en la cuenta, como el cambio de contraseña.
-- [ ] **Verificación de Email en Cambios**: Implementar un proceso de re-verificación de correo electrónico si el usuario decide cambiar su dirección actual.
-- [ ] **Caché de Fragmentos**: Cachear fragmentos de plantillas estáticas (como el footer o menús) utilizando el sistema de caché de Django para mejorar el tiempo de respuesta.
-- [ ] **Minificación y Compresión de Assets**: Configurar `django-compressor` para unificar y minificar archivos CSS y JS en producción, reduciendo el peso de la página.
-- [ ] **Optimización de Imágenes con WebP**: Implementar la generación automática de versiones WebP para las imágenes subidas por los usuarios, optimizando el ancho de banda.
-- [ ] **Búsqueda Indexada en Dashboard**: Integrar `django-haystack` con un backend ligero si el volumen de datos crece, permitiendo búsquedas instantáneas y profesionales.
-- [ ] **Detección Automática de Cimas**: Procesar el GPX para identificar automáticamente los puertos o cimas de la ruta y mostrarlos como hitos en el detalle de la edición.
-- [ ] **Selector de Rutas Avanzado**: Implementar `Tom Select` o `Select2` en el formulario de edición para permitir búsquedas rápidas en el desplegable de variantes, especialmente útil ahora que incluye descripciones largas.
-- [ ] **Caché de Ordenación**: Implementar caché de fragmentos o de QuerySet para la lógica de ordenación por proximidad, reduciendo la carga en base de datos en páginas de alto tráfico.
-- [ ] **Badges de Estado en Listados**: Añadir indicadores visuales (colores) en las listas de ediciones para distinguir rápidamente entre ediciones futuras, pasadas y en curso.
-- [x] **Validación Robusta de API AEMET**: Implementar un esquema de validación (ej. Pydantic) para mapear las respuestas de la API externa, evitando errores de tipo `TypeError` al cambiar la estructura de la respuesta.
-- [ ] **Circuit Breaker para AEMET**: Implementar un patrón de "Circuit Breaker" o un fallback silencioso cuando AEMET falle o devuelva datos incompletos, evitando dependencias críticas externas.
-- [ ] **Logging Estructurado de Meteorología**: Mejorar el logging en `aemet.py` para registrar campos que devuelven formatos inesperados (como listas), facilitando el debug proactivo.
-- [x] **Gestión de Túneles Expo:** Asegurar la instalación local de `@expo/ngrok` para evitar errores de tipo `TypeError` al iniciar túneles de desarrollo.
-- [ ] **Rotación de Authtokens de Ngrok:** Implementar una política de actualización de tokens de ngrok para evitar el error `session closed` o `remote gone away` por límites de uso.
-- [ ] **Iconos Dinámicos de Clima:** Sustituir los iconos estáticos por iconos que reflejen el estado real del cielo (sol, nubes, lluvia) basándose en la descripción detallada que devuelve AEMET.
-- [ ] **Skeleton Loaders en Admin:** Implementar estados de carga (skeletons) en el Dashboard de administración y el Gestor de Media para mejorar la percepción de velocidad.
-- [ ] **Compresión de Imágenes en Cliente:** Utilizar `expo-image-manipulator` para comprimir y redimensionar las fotos antes de subirlas al servidor, reduciendo el consumo de datos y el tiempo de carga.
-- [ ] **Paginación en Administración:** Implementar carga infinita o paginación en el listado de ediciones del panel de administración para manejar grandes volúmenes de datos eficientemente.
-- [ ] **Ajuste Dinámico de WindOverlay:** Adaptar el número de partículas del mapa de viento dinámicamente según el rendimiento del dispositivo para mantener los 60 FPS.
+---
+
+## 🔴 URGENTES — Implementar Ya
+
+- [x] **🔴 Tests Unitarios e Integración:** 33 tests implementados: `get_category` (7), `recalculate_positions` (4), `validate_track` con PostGIS real (5), `ActivityUploadAPIView` (7), `RegisterAPIView`+`EditionRegisterAPIView` (6), `auto_close_expired_editions` con freezegun (4). Cobertura ~52%. Ejecutar con `pytest`.
+
+- [x] **🔴 Rate Limiting en la API:** Throttling nativo DRF con Redis DB1 como caché compartido. Login 10/min, register 5/h, activity_upload 10/h, webhook 200/min, global anon 30/min, user 100/min. 4 tests de throttling añadidos (37 total).
+
+- [x] **🔴 Validación Estricta de Inputs en Activity Upload:** `ActivityUploadSerializer` con `elapsed_time_seconds` (1–64800 s), `average_moving_speed` (0.1–120 km/h), y validación de coordenadas GeoJSON (tipo, rango lon/lat, mínimo 2 puntos). 9 tests de validación añadidos (46 total).
+
+- [x] **🔴 Monitorización de Errores (Sentry):** `sentry-sdk[django]` añadido a `requirements.txt`. Configuración en `settings/base.py` condicional a `SENTRY_DSN` (inactivo sin DSN → no rompe local ni tests). Añadir `SENTRY_DSN=<dsn>` en Dokploy para activar en producción.
+
+- [x] **🔴 Endpoint de Salud `/api/health/`:** `HealthCheckAPIView` en `/api/health/` verifica BD y caché. Devuelve 200/503 según estado. `healthcheck` añadido al servicio `web` en `docker-compose.yml` (intervalo 30s, start_period 60s). 4 tests añadidos (50 total).
+
+- [x] **🔴 Optimización de Consultas N+1:** `select_related("route_variant")` en `EditionListAPIView` y `EditionDetailAPIView` (+ `prefetch_related("media")`). `UserStatsSerializer` evalúa el queryset una sola vez (lista cacheada en context) eliminando 2 COUNT extras. Tests con `django_assert_num_queries` verifican 1 query para lista y 2 para stats (52 total).
+
+---
+
+## 🟠 ALTA PRIORIDAD — Sprint Próximo
+
+- [ ] **Firma de Webhook Strava:** El endpoint `POST /strava/webhook/` acepta cualquier payload sin verificar la firma `X-Hub-Signature-256` que envía Strava. Un atacante puede inyectar eventos falsos. Implementar la verificación HMAC-SHA256 con `STRAVA_CLIENT_SECRET` antes de procesar el cuerpo.
+
+- [ ] **Circuit Breaker para AEMET:** Si AEMET falla o tarda, la respuesta de `EditionDetailSerializer` bloquea el hilo Django. Añadir un timeout explícito (`requests.get(..., timeout=5)`) y un fallback que devuelva `None` sin relanzar la excepción. Complementar con el cache ya existente para servir el último dato válido aunque AEMET esté caída.
+
+- [ ] **Health Checks en Docker Compose:** Sin `healthcheck` en `docker-compose.yml`, Dokploy puede marcar el contenedor como "up" aunque la app tarde 30 s en arrancar (pendiente de migrate). Añadir:
+  ```yaml
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 60s
+  ```
+
+- [ ] **Paginación en Endpoints de Lista API:** `EditionListAPIView` devuelve todas las ediciones de golpe; con el tiempo la respuesta crecerá indefinidamente. Activar `PageNumberPagination` de DRF con `page_size=20`.
+
+- [ ] **Procesamiento de GPX Asíncrono:** En `EditionListAPIView.post` y `EditionDetailAPIView.patch` se llama a `parse_gpx_to_geometry_and_elevation` de forma síncrona en el hilo de request. Un GPX pesado puede bloquear el worker de Daphne durante segundos. Mover a una tarea Celery que actualice `edition` en background.
+
+- [ ] **Cabeceras de Seguridad HTTP:** En producción no se fuerzan cabeceras básicas. Añadir en `settings/production.py`:
+  ```python
+  SECURE_SSL_REDIRECT = True
+  SECURE_HSTS_SECONDS = 31536000
+  SESSION_COOKIE_SECURE = True
+  CSRF_COOKIE_SECURE = True
+  X_FRAME_OPTIONS = "DENY"
+  ```
+
+- [ ] **Logging Estructurado:** Los `logger.warning` actuales en `api/views.py` son texto plano. En producción es difícil filtrar por `user_id` o `edition_id`. Usar `structlog` o añadir `extra={"user_id": ..., "edition_id": ...}` a los llamados de logging para facilitar debug en producción.
+
+---
+
+## 🟡 MEDIA PRIORIDAD — Planificar
+
+- [ ] **Modo Offline en la App Móvil:** En zonas de montaña la conexión puede perderse durante la prueba. Diseñar el sistema para que `useTracking.ts` almacene las coordenadas en `AsyncStorage` y las envíe en batch cuando detecte conexión estable, en lugar de perder el track si se corta.
+
+- [ ] **EAS Update (OTA):** Configurar `expo-updates` para permitir actualizaciones Over-The-Air sin que el usuario deba descargar una nueva versión de la tienda. Ideal para correcciones de bugs urgentes en la app.
+
+- [ ] **Downsampling del Perfil de Elevación:** Si el GPX tiene miles de puntos, el JSON de `elevation_profile` puede ser muy pesado para Chart.js en móviles. Implementar un algoritmo de reducción (Ramer-Douglas-Peucker o simplemente 1 de cada N puntos) antes de persistir en BD.
+
+- [ ] **Caché Proactiva de AEMET con Celery Beat:** En lugar de llamar a AEMET cuando el usuario carga la página, agregar una tarea Beat que actualice el pronóstico cada hora para las ediciones `open`. Así la respuesta siempre viene de caché y AEMET nunca es un cuello de botella en el request.
+
+- [ ] **Multi-stage Builds en Dockerfile:** Separar la fase de compilación (build tools, headers C) de la imagen final para reducir el tamaño del contenedor de producción. Puede reducir la imagen ~200–300 MB.
+
+- [ ] **Optimización de Bundle Móvil:** Ejecutar `npx expo export` + `@expo/bundle-analyzer` para identificar dependencias pesadas innecesarias. Evaluar si `react-native-maps` y librerías de geolocalización están correctamente tree-shaken.
+
+- [ ] **Migración a Nueva Arquitectura React Native:** La Nueva Arquitectura (Fabric + TurboModules) está habilitada por defecto en Expo SDK 54+. Verificar compatibilidad de `react-native-maps`, `expo-location` y `react-native-background-fetch` para evitar fallos silenciosos.
+
+- [ ] **Validación de Geometría Proactiva:** Añadir un `pre_save` signal o validador en el modelo que compruebe que el track enviado no contenga coordenadas nulas, duplicadas o fuera de rango (lat ∈ [-90,90], lon ∈ [-180,180]) antes de pasarlo a `validate_track`.
+
+---
+
+## 🟢 BAJA PRIORIDAD — Mejoras de Calidad
+
+- [ ] **Reglas de Protección de Rama:** Proteger la rama `deploy` en GitHub para evitar pushes directos accidentales. Requerir que los cambios lleguen solo mediante merge de `main`.
+
+- [ ] **Etiquetado de Versiones (Tags):** Usar `git tag v1.x.x` en la rama `deploy` para marcar hitos de producción y poder hacer rollback limpio (`git checkout v1.0.0`).
+
+- [ ] **Iconos Dinámicos de Clima:** Los iconos de estado del cielo en el detalle de edición son estáticos. Mapear los códigos de `estado_cielo` de AEMET a íconos SVG correspondientes (sol, nubes, lluvia, tormenta) para mejorar la UX sin coste adicional.
+
+- [ ] **Skeleton Loaders en la App Móvil:** Las pantallas de lista de ediciones y clasificación muestran un spinner genérico durante la carga. Reemplazar con skeletons que reflejen la estructura real de las cards para mejorar la percepción de velocidad.
+
+- [ ] **Validación de Fortaleza de Contraseña:** Añadir `AUTH_PASSWORD_VALIDATORS` de Django en producción y feedback visual en tiempo real en el formulario de registro de la app móvil y web.
+
+- [ ] **Notificaciones de Seguridad por Email:** Enviar un email automático al usuario cuando ocurra un cambio sensible en su cuenta (cambio de contraseña, desconexión de Strava, nuevo login desde IP diferente).
+
+- [ ] **Detección Automática de Cimas:** Procesar el GPX de la ruta para identificar puertos o cimas (punto local de máxima altitud seguido de descenso sostenido) y mostrarlos como hitos en el mapa del detalle de edición.
+
+- [ ] **Paginación en el Dashboard de Administración:** El listado de ediciones del panel staff no tiene paginación. Con el tiempo puede volverse lento. Activar `paginate_by = 20` en la vista correspondiente.
+
+- [ ] **Optimización de Daphne Workers:** Ajustar `--workers` y `--threads` en `entrypoint.sh` en función de los cores del VPS. Para un VPS de 2 vCPU: `daphne ... -u /tmp/daphne.sock --access-log - --proxy-headers` con proxy Nginx es la configuración más eficiente.
+
+---
+
+## ✅ Completadas
+
+- [x] **Índices Espaciales** — `spatial_index=True` en geometrías de Edition y RouteVariant.
+- [x] **Integrar `rest_framework_gis`** — `route_geojson` devuelto como GeoJSON nativo.
+- [x] **GitHub Actions para Despliegue Automático** — Workflow configurado en la rama `deploy`.
+- [x] **Optimización de Docker (.dockerignore)** — Archivo creado, imagen más ligera.
+- [x] **Estabilidad de Imagen Base** — `python:3.12-slim` en el Dockerfile.
+- [x] **Sincronización de Rama `deploy`** — Flujo main → deploy documentado en CLAUDE.md.
+- [x] **Resolución de Conflictos de Puerto** — Puerto 8010 en producción.
+- [x] **Validación Robusta de API AEMET** — Pydantic/validación de estructura de respuesta.
+- [x] **Optimización de Imágenes con WebP** — `optimize_image()` en `UserProfile.save()` y `EditionMedia.save()`.
+- [x] **Compresión de Imágenes en Cliente** — `expo-image-manipulator` antes de subir fotos.
+- [x] **Gestión de Túneles Expo** — `@expo/ngrok` instalado localmente.
