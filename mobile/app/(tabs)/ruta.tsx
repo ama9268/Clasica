@@ -5,9 +5,10 @@ import {
 } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
-import { getEditions, registerEdition, uploadActivity } from '@/api/editions';
+import { getEditions, registerEdition, uploadActivity, getStravaActivities, uploadStravaActivity } from '@/api/editions';
 import { useTracking } from '@/hooks/useTracking';
 import { useRuta } from '@/hooks/useRuta';
+import { useAuth } from '@/context/AuthContext';
 import type { Edition, ActivityUploadResult } from '@/types';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -65,10 +66,12 @@ type ScreenState =
   | 'not_registered'
   | 'ready'
   | 'tracking'
-  | 'uploading'
+  | 'uploading'      // buscando en Strava
+  | 'uploading_gps'  // fallback GPS
   | 'done';
 
 export default function RutaScreen() {
+  const { user } = useAuth();
   const [screenState, setScreenState] = useState<ScreenState>('loading');
   const [edition, setEdition] = useState<any | null>(null);
   const [nextEdition, setNextEdition] = useState<Edition | null>(null);
@@ -159,12 +162,34 @@ export default function RutaScreen() {
           style: 'destructive',
           onPress: async () => {
             const rutaResult = stopTracking();
-            if (!rutaResult || !edition) {
-              Alert.alert('Error', 'No hay suficientes puntos GPS para subir el track.');
+            if (!edition) return;
+
+            // ── Flujo Strava primero ──────────────────────────────────────
+            if (user?.strava_connected) {
+              setScreenState('uploading'); // "Buscando en Strava…"
+              try {
+                const activities = await getStravaActivities(edition.id);
+                if (activities.length > 0) {
+                  // Auto-seleccionar la más reciente (primera de la lista)
+                  const latest = activities[0];
+                  const res = await uploadStravaActivity(edition.id, latest.id);
+                  setResult(res);
+                  setScreenState('done');
+                  return;
+                }
+                // Strava no tiene actividades hoy → fallback GPS
+              } catch {
+                // Error de Strava → fallback GPS
+              }
+            }
+
+            // ── Fallback: track GPS propio ────────────────────────────────
+            if (!rutaResult) {
+              Alert.alert('Sin datos', 'No hay suficientes puntos GPS para registrar la ruta.');
               setScreenState('ready');
               return;
             }
-            setScreenState('uploading');
+            setScreenState('uploading_gps');
             try {
               const res = await uploadActivity(edition.id, rutaResult);
               setResult(res);
@@ -279,11 +304,15 @@ export default function RutaScreen() {
     );
   }
 
-  if (screenState === 'uploading') {
+  if (screenState === 'uploading' || screenState === 'uploading_gps') {
     return (
       <View style={s.center}>
         <ActivityIndicator color="#8b1a1a" size="large" />
-        <Text style={s.uploadingText}>Subiendo track al servidor…</Text>
+        <Text style={s.uploadingText}>
+          {screenState === 'uploading'
+            ? 'Buscando actividad en Strava…'
+            : 'Subiendo track GPS al servidor…'}
+        </Text>
       </View>
     );
   }
