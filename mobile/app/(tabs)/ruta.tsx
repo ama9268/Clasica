@@ -179,14 +179,15 @@ export default function RutaScreen() {
                   return;
                 }
                 // Strava no tiene actividades hoy → fallback GPS
-              } catch {
-                // Error de Strava → fallback GPS
+                Alert.alert('Strava', 'No hay actividades Strava de hoy. Usando track GPS propio.');
+              } catch (err: any) {
+                Alert.alert('Strava error', err?.response?.data?.detail ?? err?.message ?? 'Error desconocido');
               }
             }
 
             // ── Fallback: track GPS propio ────────────────────────────────
             if (!rutaResult) {
-              Alert.alert('Sin datos', 'No hay suficientes puntos GPS para registrar la ruta.');
+              Alert.alert('Sin datos GPS', `Puntos capturados: insuficientes (< 2). Inicia el track y espera al menos 10 s antes de finalizar.`);
               setScreenState('ready');
               return;
             }
@@ -195,8 +196,8 @@ export default function RutaScreen() {
               const res = await uploadActivity(edition.id, rutaResult);
               setResult(res);
               setScreenState('done');
-            } catch {
-              Alert.alert('Error', 'No se pudo subir el track. Inténtalo de nuevo.');
+            } catch (err: any) {
+              Alert.alert('Error GPS', err?.response?.data?.detail ?? err?.message ?? 'No se pudo subir el track.');
               setScreenState('ready');
             }
           },
