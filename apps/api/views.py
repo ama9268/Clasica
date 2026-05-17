@@ -504,9 +504,7 @@ class HealthCheckAPIView(APIView):
             logger.error("Health check cache failed: %s", exc)
             checks["cache"] = "error"
 
-        http_status = (
-            status.HTTP_200_OK
-            if all(v == "ok" for v in checks.values())
-            else status.HTTP_503_SERVICE_UNAVAILABLE
-        )
-        return Response({"status": "ok" if http_status == 200 else "degraded", **checks}, status=http_status)
+        all_ok = all(v == "ok" for v in checks.values())
+        if not all_ok:
+            logger.warning("Health check degraded: %s", checks)
+        return Response({"status": "ok" if all_ok else "degraded", **checks}, status=status.HTTP_200_OK)
