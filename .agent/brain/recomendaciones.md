@@ -23,34 +23,18 @@ Las marcadas con **🔴 URGENTE** tienen impacto directo en producción y deben 
 
 ## 🟠 ALTA PRIORIDAD — Sprint Próximo
 
-- [ ] **Firma de Webhook Strava:** El endpoint `POST /strava/webhook/` acepta cualquier payload sin verificar la firma `X-Hub-Signature-256` que envía Strava. Un atacante puede inyectar eventos falsos. Implementar la verificación HMAC-SHA256 con `STRAVA_CLIENT_SECRET` antes de procesar el cuerpo.
+- [x] **Firma de Webhook Strava:** Verificación HMAC-SHA256 implementada en `StravaWebhookAPIView.post()` usando `STRAVA_CLIENT_SECRET` y `hmac.compare_digest`. Header `X-Hub-Signature: sha256=<hex>`. Sin firma válida → 403. 3 tests añadidos.
 
-- [ ] **Circuit Breaker para AEMET:** Si AEMET falla o tarda, la respuesta de `EditionDetailSerializer` bloquea el hilo Django. Añadir un timeout explícito (`requests.get(..., timeout=5)`) y un fallback que devuelva `None` sin relanzar la excepción. Complementar con el cache ya existente para servir el último dato válido aunque AEMET esté caída.
+- [x] **Circuit Breaker para AEMET:** Timeout (8 s) y try/except ya existían. Añadida stale cache (`aemet_stale_*`, TTL 7 días): cuando AEMET falla y la caché fresca (1 h) expira, se sirve el último dato válido en lugar de `None`. 2 tests añadidos.
 
-- [ ] **Health Checks en Docker Compose:** Sin `healthcheck` en `docker-compose.yml`, Dokploy puede marcar el contenedor como "up" aunque la app tarde 30 s en arrancar (pendiente de migrate). Añadir:
-  ```yaml
-  healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
-    interval: 30s
-    timeout: 10s
-    retries: 3
-    start_period: 60s
-  ```
 
-- [ ] **Paginación en Endpoints de Lista API:** `EditionListAPIView` devuelve todas las ediciones de golpe; con el tiempo la respuesta crecerá indefinidamente. Activar `PageNumberPagination` de DRF con `page_size=20`.
+- [x] **Paginación en Endpoints de Lista API:** `PageNumberPagination` con `page_size=20` en `EditionListAPIView.get()`. App móvil `getEditions()` actualizada para leer `data.results`. 3 tests nuevos + test de queries actualizado (1→2 por COUNT de paginación).
 
 - [ ] **Procesamiento de GPX Asíncrono:** En `EditionListAPIView.post` y `EditionDetailAPIView.patch` se llama a `parse_gpx_to_geometry_and_elevation` de forma síncrona en el hilo de request. Un GPX pesado puede bloquear el worker de Daphne durante segundos. Mover a una tarea Celery que actualice `edition` en background.
 
-- [ ] **Cabeceras de Seguridad HTTP:** En producción no se fuerzan cabeceras básicas. Añadir en `settings/production.py`:
-  ```python
-  SECURE_SSL_REDIRECT = True
-  SECURE_HSTS_SECONDS = 31536000
-  SESSION_COOKIE_SECURE = True
-  CSRF_COOKIE_SECURE = True
-  X_FRAME_OPTIONS = "DENY"
-  ```
+- [x] **Cabeceras de Seguridad HTTP:** Añadidas en `settings/base.py` (bloque `if not DEBUG:`): `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` y `SECURE_HSTS_PRELOAD`. Las demás (`X_FRAME_OPTIONS`, `SECURE_HSTS_SECONDS`, `SECURE_SSL_REDIRECT` vía env) ya existían. `SECURE_SSL_REDIRECT` se mantiene env-controlado (Traefik gestiona SSL; hardcodearlo a `True` causaría loops).
 
-- [ ] **Logging Estructurado:** Los `logger.warning` actuales en `api/views.py` son texto plano. En producción es difícil filtrar por `user_id` o `edition_id`. Usar `structlog` o añadir `extra={"user_id": ..., "edition_id": ...}` a los llamados de logging para facilitar debug en producción.
+- [x] **Logging Estructurado:** Instalado `python-json-logger>=2.0`. Formatter cambiado a `JsonFormatter` en `settings/base.py`. Añadido `extra={"user_id": ...}` en Strava connect error, `extra={"remote_ip": ...}` en los dos warnings del webhook, y `extra={"edition_date": ...}` en los dos warnings de AEMET. Cada línea de log es ahora JSON parseable con `jq`.
 
 ---
 

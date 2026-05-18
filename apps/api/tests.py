@@ -367,9 +367,8 @@ class TestNPlusOneQueries:
                 route_variant=rv,
             )
 
-        with django_assert_num_queries(1):
-            # force_authenticate no genera query de BD
-            # 1 query: SELECT editions JOIN route_variant (un solo JOIN)
+        with django_assert_num_queries(2):
+            # 1 COUNT (paginación) + 1 SELECT editions JOIN route_variant
             resp = auth_client.get("/api/v1/editions/")
         assert resp.status_code == 200
 
@@ -387,3 +386,88 @@ class TestNPlusOneQueries:
         assert resp.status_code == 200
         assert resp.data["total_participations"] == 1
         assert resp.data["total_valid"] == 1
+
+
+# ── StravaWebhookAPIView — firma HMAC-SHA256 ─────────────────────────────────
+
+class TestStravaWebhookSignature:
+    URL = "/api/v1/strava/webhook/"
+
+    def _make_sig(self, body: bytes, secret: str = "test_secret") -> str:
+        import hmac, hashlib
+        return "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+
+    @pytest.mark.django_db
+    def test_webhook_valid_signature_returns_200(self, client, settings):
+        settings.STRAVA_CLIENT_SECRET = "test_secret"
+        body = b'{"aspect_type":"create","object_type":"activity"}'
+        sig = self._make_sig(body)
+        response = client.post(
+            self.URL, data=body,
+            content_type="application/json",
+            HTTP_X_HUB_SIGNATURE=sig,
+        )
+        assert response.status_code == 200
+
+    @pytest.mark.django_db
+    def test_webhook_invalid_signature_returns_403(self, client, settings):
+        settings.STRAVA_CLIENT_SECRET = "test_secret"
+        body = b'{"aspect_type":"create","object_type":"activity"}'
+        response = client.post(
+            self.URL, data=body,
+            content_type="application/json",
+            HTTP_X_HUB_SIGNATURE="sha256=deadbeef",
+        )
+        assert response.status_code == 403
+
+    @pytest.mark.django_db
+    def test_webhook_missing_signature_returns_403(self, client, settings):
+        settings.STRAVA_CLIENT_SECRET = "test_secret"
+        body = b'{"aspect_type":"create","object_type":"activity"}'
+        response = client.post(
+            self.URL, data=body,
+            content_type="application/json",
+        )
+        assert response.status_code == 403
+
+
+# ── EditionListAPIView — paginación ─────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestEditionListPagination:
+    """Verifica estructura paginada y navegación de páginas."""
+
+    URL = "/api/v1/editions/"
+
+    def _create_editions(self, n: int):
+        from datetime import date, time
+        for i in range(n):
+            Edition.objects.create(
+                date=date(2025, 1, i + 1),
+                name=f"Ed {i}",
+                start_time=time(16, 30),
+            )
+
+    def test_response_has_paginated_structure(self, auth_client):
+        self._create_editions(5)
+        resp = auth_client.get(self.URL)
+        assert resp.status_code == 200
+        assert "count" in resp.data
+        assert "results" in resp.data
+        assert isinstance(resp.data["results"], list)
+
+    def test_page_size_is_20(self, auth_client):
+        self._create_editions(25)
+        resp = auth_client.get(self.URL)
+        assert resp.status_code == 200
+        assert len(resp.data["results"]) == 20
+        assert resp.data["count"] == 25
+        assert resp.data["next"] is not None
+
+    def test_second_page(self, auth_client):
+        self._create_editions(25)
+        resp = auth_client.get(self.URL + "?page=2")
+        assert resp.status_code == 200
+        assert len(resp.data["results"]) == 5
+        assert resp.data["previous"] is not None
+        assert resp.data["next"] is None

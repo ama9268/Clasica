@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 LLERENA_INE = "06074"
 AEMET_BASE  = "https://opendata.aemet.es/opendata/api"
 TIMEOUT     = 8
+STALE_TTL   = 60 * 60 * 24 * 7   # 7 días
 
 
 def get_weather_forecast_for_edition(edition_date: date, start_hour: int = 16):
@@ -19,6 +20,8 @@ def get_weather_forecast_for_edition(edition_date: date, start_hour: int = 16):
         return None
 
     cache_key = f"aemet_{edition_date.isoformat()}_{start_hour}"
+    stale_key = f"aemet_stale_{edition_date.isoformat()}_{start_hour}"
+
     cached = cache.get(cache_key)
     if cached:
         return cached
@@ -30,7 +33,13 @@ def get_weather_forecast_for_edition(edition_date: date, start_hour: int = 16):
 
     if result:
         cache.set(cache_key, result, timeout=3600)
-    return result
+        cache.set(stale_key, result, timeout=STALE_TTL)
+        return result
+
+    stale = cache.get(stale_key)
+    if stale:
+        logger.info("AEMET no disponible, sirviendo dato stale para %s", edition_date)
+    return stale
 
 
 def _fetch_horaria(edition_date: date, hour: str, headers: dict):
@@ -53,7 +62,7 @@ def _fetch_horaria(edition_date: date, hour: str, headers: dict):
                     logger.info("AEMET horaria OK hora=%s", hour)
                     return parsed
     except Exception as exc:
-        logger.warning("AEMET horaria falló: %s", exc)
+        logger.warning("AEMET horaria falló: %s", exc, extra={"edition_date": str(edition_date)})
     return None
 
 
@@ -77,7 +86,7 @@ def _fetch_diaria(edition_date: date, headers: dict):
                     logger.info("AEMET diaria OK (fallback)")
                     return parsed
     except Exception as exc:
-        logger.warning("AEMET diaria falló: %s", exc)
+        logger.warning("AEMET diaria falló: %s", exc, extra={"edition_date": str(edition_date)})
     return None
 
 
