@@ -2,8 +2,8 @@ import client from './client';
 import type { Edition, EditionDetail, ActivityUploadResult, GeoJSONLineString, RouteVariant, StravaActivity } from '../types';
 
 export async function getEditions(): Promise<Edition[]> {
-  const { data } = await client.get<Edition[]>('/editions/');
-  return data;
+  const { data } = await client.get<{ count: number; next: string | null; previous: string | null; results: Edition[] }>('/editions/');
+  return data.results;
 }
 
 export async function getEdition(id: number): Promise<EditionDetail> {

@@ -322,6 +322,15 @@ Expo Router + TypeScript. Ver [mobile/README.md](mobile/README.md).
 
 La subida del track se hace con `uploadActivity()` de `src/api/editions.ts`.
 
+### Tunnel (desarrollo con móvil físico)
+El móvil físico se conecta a Expo mediante `--tunnel` (ngrok). El paquete `@expo/ngrok-bin` incluye ngrok v2.3.41, que ngrok **ya no soporta** en cuentas gratuitas (mínimo v3.20.0).
+
+**Solución permanente:** `scripts/fix-ngrok.js` (ejecutado automáticamente por `postinstall`) descarga ngrok v3+ y reemplaza el binario en `node_modules/@expo/ngrok-bin-win32-x64/ngrok.exe`.
+
+- Usar siempre **`pnpm install`** (no `npm install`) — hay una vulnerabilidad de seguridad con npm.
+- Para arrancar con tunnel: `npx expo start --tunnel --clear`
+- El authtoken de ngrok debe estar en `.ngrok2/ngrok.yml` (se configura una sola vez con el binario nuevo).
+
 ## Reglas de Desarrollo
 
 1. **PostGIS nativo:** operaciones espaciales siempre en la BD, nunca Haversine en Python.

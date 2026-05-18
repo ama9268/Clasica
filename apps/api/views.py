@@ -1,5 +1,6 @@
 import logging
 from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAuthenticatedOrReadOnly, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -53,7 +54,10 @@ class EditionListAPIView(APIView):
 
     def get(self, request):
         editions = Edition.objects.select_related("route_variant").order_by("-date")
-        return Response(EditionSerializer(editions, many=True).data)
+        paginator = PageNumberPagination()
+        paginator.page_size = 20
+        page = paginator.paginate_queryset(editions, request)
+        return paginator.get_paginated_response(EditionSerializer(page, many=True).data)
 
     def post(self, request):
         if not request.user.is_staff:
@@ -317,7 +321,7 @@ class StravaConnectAPIView(APIView):
         try:
             payload = StravaClient.exchange_code(code=code, redirect_uri=redirect_uri)
         except StravaError as exc:
-            logger.warning("Strava connect error: %s", exc)
+            logger.warning("Strava connect error: %s", exc, extra={"user_id": request.user.pk})
             return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
 
         athlete = payload.get("athlete", {})
@@ -468,8 +472,34 @@ class StravaWebhookAPIView(APIView):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
     def post(self, request):
-        # Fase 2: procesar eventos push de Strava
-        logger.info("Strava webhook event: %s", request.data)
+        import hmac
+        import hashlib
+        from django.conf import settings as conf
+
+        client_secret = getattr(conf, "STRAVA_CLIENT_SECRET", "")
+        received_sig = request.headers.get("X-Hub-Signature", "")
+
+        if not client_secret or not received_sig.startswith("sha256="):
+            logger.warning(
+                "Strava webhook: missing signature or secret not configured",
+                extra={"remote_ip": request.META.get("REMOTE_ADDR")},
+            )
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        expected_sig = "sha256=" + hmac.new(
+            client_secret.encode(),
+            request.body,
+            hashlib.sha256,
+        ).hexdigest()
+
+        if not hmac.compare_digest(received_sig, expected_sig):
+            logger.warning(
+                "Strava webhook: invalid HMAC-SHA256 signature",
+                extra={"remote_ip": request.META.get("REMOTE_ADDR")},
+            )
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        logger.info("Strava webhook event verified: %s", request.data)
         return Response({"status": "ok"})
 
 

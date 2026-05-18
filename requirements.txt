@@ -14,3 +14,4 @@ gpxpy
 requests
 django-environ
 sentry-sdk[django]
+python-json-logger>=2.0
