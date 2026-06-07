@@ -33,5 +33,6 @@ urlpatterns = [
     path("auth/strava/disconnect/", views.StravaDisconnectAPIView.as_view(), name="strava-disconnect"),
     path("editions/<int:pk>/strava-activities/", views.StravaActivitiesAPIView.as_view(), name="strava-activities"),
     path("editions/<int:pk>/activity/strava/", views.StravaActivityUploadAPIView.as_view(), name="strava-activity-upload"),
+    path("editions/<int:pk>/activity/strava/auto/", views.StravaAutoUploadAPIView.as_view(), name="strava-auto-upload"),
     path("strava/webhook/", views.StravaWebhookAPIView.as_view(), name="strava-webhook"),
 ]

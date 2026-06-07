@@ -2,6 +2,8 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+// Registra la tarea de localización en background antes de la navegación
+import '@/tasks/locationTask';
 
 function Guard() {
   const { user, loading } = useAuth();

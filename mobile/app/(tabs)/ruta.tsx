@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, Alert, ScrollView,
 } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
-import { getEditions, registerEdition, uploadActivity, getStravaActivities, uploadStravaActivity } from '@/api/editions';
+import { getEditions, registerEdition, uploadActivity, uploadStravaActivityAuto } from '@/api/editions';
 import { useTracking } from '@/hooks/useTracking';
 import { useRuta } from '@/hooks/useRuta';
 import { useAuth } from '@/context/AuthContext';
@@ -71,7 +72,10 @@ type ScreenState =
   | 'done';
 
 export default function RutaScreen() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+
+  // Refrescar usuario al entrar en la pantalla por si strava_connected cambió
+  useFocusEffect(useCallback(() => { refreshUser(); }, []));
   const [screenState, setScreenState] = useState<ScreenState>('loading');
   const [edition, setEdition] = useState<any | null>(null);
   const [nextEdition, setNextEdition] = useState<Edition | null>(null);
@@ -152,25 +156,29 @@ export default function RutaScreen() {
 
   // ── Finish route ──
   async function handleStop() {
-    const rutaResult = stopTracking();
     disconnect(); // cerrar WS inmediatamente
+    const rutaResult = await stopTracking();
     if (!edition) return;
 
-    // ── Flujo Strava primero ──────────────────────────────────────
+    // ── Flujo Strava primero (un único round-trip) ────────────────
     if (user?.strava_connected) {
       setScreenState('uploading'); // "Buscando en Strava…"
       try {
-        const activities = await getStravaActivities(edition.id);
-        if (activities.length > 0) {
-          const latest = activities[0];
-          const res = await uploadStravaActivity(edition.id, latest.id);
-          setResult(res);
-          setScreenState('done');
-          return;
-        }
-        Alert.alert('Strava', 'No hay actividades Strava de hoy. Usando track GPS propio.');
+        const res = await uploadStravaActivityAuto(edition.id);
+        setResult(res);
+        setScreenState('done');
+        return;
       } catch (err: any) {
-        Alert.alert('Strava error', err?.response?.data?.detail ?? err?.message ?? 'Error desconocido');
+        const httpStatus: number | undefined = err?.response?.status;
+        const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout');
+        // 404 = sin actividad Strava hoy; timeout/red = Strava no disponible
+        // En ambos casos caer silenciosamente al GPS propio
+        if (httpStatus !== undefined && httpStatus !== 404) {
+          const detail: string = err?.response?.data?.detail ?? err?.message ?? '';
+          Alert.alert('Strava', detail || 'Error al subir desde Strava. Usando track GPS propio.');
+        }
+        // isTimeout o sin respuesta → silencioso
+        void isTimeout;
       }
     }
 

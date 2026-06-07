@@ -47,6 +47,25 @@ function download(url, dest) {
   });
 }
 
+// ── Parche API de tunnels para compatibilidad con ngrok v3 ──────────────────
+function patchNgrokClient() {
+  const clientPath = path.join(
+    __dirname, '..', 'node_modules', '@expo', 'ngrok', 'src', 'client.js'
+  );
+  if (!fs.existsSync(clientPath)) return;
+  let src = fs.readFileSync(clientPath, 'utf8');
+  const needle = 'startTunnel(options = {}) {\n    return this.request("post", "api/tunnels", options);\n  }';
+  const patched = `startTunnel(options = {}) {\n    // ngrok v3 rejects authtoken, configPath and port at the tunnel level\n    const { authtoken, configPath, port, ...opts } = options;\n    if (port && !opts.addr) opts.addr = port;\n    return this.request("post", "api/tunnels", opts);\n  }`;
+  if (src.includes(needle)) {
+    fs.writeFileSync(clientPath, src.replace(needle, patched), 'utf8');
+    console.log('Parche ngrok v3 aplicado a @expo/ngrok/src/client.js');
+  } else if (!src.includes('ngrok v3 rejects')) {
+    console.warn('Aviso: no se pudo aplicar el parche a client.js (estructura inesperada).');
+  } else {
+    console.log('Parche ngrok v3 ya estaba aplicado.');
+  }
+}
+
 async function main() {
   console.log('Actualizando ngrok a v3+...');
   try {
@@ -62,6 +81,7 @@ async function main() {
     console.warn('Aviso: no se pudo actualizar ngrok:', err.message);
     console.warn('Reemplaza manualmente node_modules/@expo/ngrok-bin-win32-x64/ngrok.exe con ngrok v3+.');
   }
+  patchNgrokClient();
 }
 
 main();

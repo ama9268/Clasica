@@ -79,3 +79,14 @@ export async function uploadStravaActivity(
   );
   return data;
 }
+
+/** Un único round-trip: busca la actividad Strava del día, descarga el stream
+ *  GPS y valida — todo en el servidor. Timeout extendido a 35 s. */
+export async function uploadStravaActivityAuto(editionId: number): Promise<ActivityUploadResult> {
+  const { data } = await client.post<ActivityUploadResult>(
+    `/editions/${editionId}/activity/strava/auto/`,
+    {},
+    { timeout: 25000 }
+  );
+  return data;
+}

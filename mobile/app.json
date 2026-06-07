@@ -14,7 +14,10 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "La Clásica necesita tu ubicación para el tracking en vivo durante la prueba."
+          "locationAlwaysAndWhenInUsePermission": "La Clásica necesita tu ubicación para registrar la ruta aunque la pantalla esté apagada.",
+          "locationWhenInUsePermission": "La Clásica necesita tu ubicación para el tracking en vivo durante la prueba.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true
         }
       ],
       "expo-secure-store",
@@ -27,14 +30,20 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
-      ]
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ],
+      "package": "com.clasica.app"
     },
     "ios": {
       "bundleIdentifier": "com.clasica.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para el tracking en vivo durante la prueba."
+        "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para el tracking en vivo durante la prueba.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "La Clásica necesita tu ubicación para registrar la ruta aunque la pantalla esté apagada.",
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "extra": {

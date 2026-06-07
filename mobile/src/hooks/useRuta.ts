@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { GeoJSONLineString, RutaPoint } from '../types';
+import { LOCATION_TASK, BUFFER_KEY } from '../tasks/locationTask';
 
-const OFFLINE_QUEUE_KEY = '@clasica/offline_positions';
-const CAPTURE_INTERVAL_MS = 5_000;
+const SYNC_INTERVAL_MS = 5_000;
 
 export interface RutaState {
   tracking: boolean;
@@ -29,108 +30,183 @@ export function useRuta(sendPosition: (lat: number, lng: number, speed: number) 
 
   const buffer = useRef<RutaPoint[]>([]);
   const startTime = useRef<number>(0);
-  const captureInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const syncedCount = useRef(0);
+  const syncInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const clockInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const trackingRef = useRef(false); // ref mirror to avoid stale closure in AppState handler
 
-  const capturePosition = useCallback(async () => {
+  // ── Sync de AsyncStorage → estado React + WS ────────────────────────────────
+
+  const syncFromStorage = useCallback(async () => {
     try {
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-      const speed_kmh = Math.max(0, (loc.coords.speed ?? 0) * 3.6);
-      const point: RutaPoint = {
-        lon: loc.coords.longitude,
-        lat: loc.coords.latitude,
-        speed_kmh,
-        timestamp: loc.timestamp,
-      };
-      buffer.current = [...buffer.current, point];
+      const raw = await AsyncStorage.getItem(BUFFER_KEY);
+      if (!raw) return;
+      const all: RutaPoint[] = JSON.parse(raw);
+      const newPts = all.slice(syncedCount.current);
+      if (newPts.length === 0) return;
 
-      // Recalculate avg moving speed from buffer
+      for (const pt of newPts) {
+        buffer.current.push(pt);
+        try { sendPosition(pt.lat, pt.lon, pt.speed_kmh); } catch { /* WS caído */ }
+      }
+      syncedCount.current = all.length;
+
       const movingPts = buffer.current.filter((p) => p.speed_kmh > 0);
       const avg = movingPts.length
         ? movingPts.reduce((s, p) => s + p.speed_kmh, 0) / movingPts.length
         : 0;
-      setCurrentSpeed(speed_kmh);
+      const last = buffer.current[buffer.current.length - 1];
+      setCurrentSpeed(last?.speed_kmh ?? 0);
       setAvgMovingSpeed(avg);
       setPointCount(buffer.current.length);
-
-      // Try WebSocket; on failure queue offline
-      try {
-        sendPosition(point.lat, point.lon, speed_kmh);
-      } catch {
-        await enqueueOffline(point);
-      }
     } catch {
-      // GPS unavailable
+      // error de storage
     }
   }, [sendPosition]);
 
-  async function enqueueOffline(point: RutaPoint) {
-    try {
-      const raw = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
-      const queue: RutaPoint[] = raw ? JSON.parse(raw) : [];
-      queue.push(point);
-      await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-    } catch {
-      // storage error, point lost
+  function startSyncInterval() {
+    if (syncInterval.current) return;
+    syncInterval.current = setInterval(syncFromStorage, SYNC_INTERVAL_MS);
+  }
+
+  function stopSyncInterval() {
+    if (syncInterval.current) {
+      clearInterval(syncInterval.current);
+      syncInterval.current = null;
     }
   }
 
-  async function flushOfflineQueue() {
-    try {
-      const raw = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
-      if (!raw) return;
-      const queue: RutaPoint[] = JSON.parse(raw);
-      for (const point of queue) {
-        buffer.current = [...buffer.current, point];
-        try { sendPosition(point.lat, point.lon, point.speed_kmh); } catch { /* skip */ }
+  // ── AppState: retomar sync al volver a primer plano ─────────────────────────
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      const wasActive = appStateRef.current === 'active';
+      const isActive = nextState === 'active';
+      appStateRef.current = nextState;
+
+      if (!trackingRef.current) return;
+
+      if (isActive && !wasActive) {
+        // Vuelve al primer plano: sincronizar puntos acumulados en background
+        syncFromStorage();
+        startSyncInterval();
+      } else if (!isActive && wasActive) {
+        // Va al background: detener sync (la tarea nativa sigue capturando GPS)
+        stopSyncInterval();
       }
-      await AsyncStorage.removeItem(OFFLINE_QUEUE_KEY);
-    } catch {
-      // storage error
-    }
-  }
+    });
+    return () => sub.remove();
+  }, [syncFromStorage]);
+
+  // ── API pública ─────────────────────────────────────────────────────────────
+
+  const watchSub = useRef<Location.LocationSubscription | null>(null);
 
   async function startTracking(): Promise<boolean> {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return false;
+    const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
+    if (fgStatus !== 'granted') return false;
 
+    try {
+      await Location.requestBackgroundPermissionsAsync();
+    } catch {
+      // permisos background no disponibles en este entorno
+    }
+
+    // Limpiar estado anterior
+    await AsyncStorage.removeItem(BUFFER_KEY);
     buffer.current = [];
+    syncedCount.current = 0;
     startTime.current = Date.now();
     setElapsedSeconds(0);
     setCurrentSpeed(0);
     setAvgMovingSpeed(0);
     setPointCount(0);
 
-    await flushOfflineQueue();
+    // Detener tarea previa si quedó colgada
+    if (await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK)) {
+      await Location.stopLocationUpdatesAsync(LOCATION_TASK);
+    }
 
-    // Capture immediately, then every 60 s
-    await capturePosition();
-    captureInterval.current = setInterval(capturePosition, CAPTURE_INTERVAL_MS);
+    try {
+      await Location.startLocationUpdatesAsync(LOCATION_TASK, {
+        accuracy: Location.Accuracy.High,
+        timeInterval: 5000,
+        distanceInterval: 10,
+        showsBackgroundLocationIndicator: true,
+        foregroundService: {
+          notificationTitle: 'La Clásica — Ruta activa',
+          notificationBody: 'Registrando tu recorrido GPS...',
+          notificationColor: '#8b1a1a',
+        },
+      });
+    } catch {
+      // Expo Go no soporta background tasks en iPhone físico — fallback a foreground
 
-    // Seconds clock
+      // Punto inicial inmediato para que siempre haya ≥1 punto desde el arranque
+      const initial = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const initialPt = {
+        lon: initial.coords.longitude,
+        lat: initial.coords.latitude,
+        speed_kmh: Math.max(0, (initial.coords.speed ?? 0) * 3.6),
+        timestamp: initial.timestamp,
+      };
+      await AsyncStorage.setItem(BUFFER_KEY, JSON.stringify([initialPt]));
+
+      watchSub.current = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 10 },
+        async (loc) => {
+          const pt = {
+            lon: loc.coords.longitude,
+            lat: loc.coords.latitude,
+            speed_kmh: Math.max(0, (loc.coords.speed ?? 0) * 3.6),
+            timestamp: loc.timestamp,
+          };
+          const raw = await AsyncStorage.getItem(BUFFER_KEY);
+          const buf = raw ? JSON.parse(raw) : [];
+          buf.push(pt);
+          await AsyncStorage.setItem(BUFFER_KEY, JSON.stringify(buf));
+        }
+      );
+    }
+
+    trackingRef.current = true;
+    setTracking(true);
+
+    await syncFromStorage();
+    startSyncInterval();
+
     clockInterval.current = setInterval(() => {
       setElapsedSeconds(Math.floor((Date.now() - startTime.current) / 1000));
     }, 1000);
 
-    setTracking(true);
     return true;
   }
 
-  function stopTracking(): RutaResult | null {
-    if (captureInterval.current) clearInterval(captureInterval.current);
-    if (clockInterval.current) clearInterval(clockInterval.current);
-    captureInterval.current = null;
-    clockInterval.current = null;
+  async function stopTracking(): Promise<RutaResult | null> {
+    if (watchSub.current) {
+      watchSub.current.remove();
+      watchSub.current = null;
+    } else if (await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK)) {
+      await Location.stopLocationUpdatesAsync(LOCATION_TASK);
+    }
+
+    stopSyncInterval();
+    if (clockInterval.current) {
+      clearInterval(clockInterval.current);
+      clockInterval.current = null;
+    }
+
+    trackingRef.current = false;
     setTracking(false);
 
-    AsyncStorage.removeItem(OFFLINE_QUEUE_KEY).catch(() => {});
+    // Sync final para no perder los últimos puntos
+    await syncFromStorage();
+    await AsyncStorage.removeItem(BUFFER_KEY);
 
     const pts = buffer.current;
     if (pts.length < 2) return null;
 
-    // Sort by timestamp in case offline points arrived out of order
     const sorted = [...pts].sort((a, b) => a.timestamp - b.timestamp);
     const coords: [number, number][] = sorted.map((p) => [p.lon, p.lat]);
     const elapsed = Math.floor((Date.now() - startTime.current) / 1000);
@@ -146,11 +222,12 @@ export function useRuta(sendPosition: (lat: number, lng: number, speed: number) 
     };
   }
 
-  // Cleanup on unmount
+  // Limpieza al desmontar
   useEffect(() => {
     return () => {
-      if (captureInterval.current) clearInterval(captureInterval.current);
+      stopSyncInterval();
       if (clockInterval.current) clearInterval(clockInterval.current);
+      if (watchSub.current) { watchSub.current.remove(); watchSub.current = null; }
     };
   }, []);
 

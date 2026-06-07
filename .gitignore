@@ -47,3 +47,6 @@ mobile/dist/
 scratch/
 .agent/
 .claude/
+
+# Coverage
+.coverage

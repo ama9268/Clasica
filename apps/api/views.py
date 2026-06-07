@@ -452,6 +452,116 @@ class StravaActivityUploadAPIView(APIView):
         })
 
 
+class StravaAutoUploadAPIView(APIView):
+    """
+    POST /editions/<pk>/activity/strava/auto/
+
+    Detecta automáticamente la actividad Strava del día de la edición,
+    descarga el stream GPS, valida con PostGIS y guarda la Activity en
+    un único round-trip (evita el doble timeout del flujo manual).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        import datetime
+        import time as _time
+        from django.conf import settings as conf
+        from django.utils import timezone as tz
+        from apps.accounts.services.strava import StravaClient, StravaError
+        from apps.participations.tasks import validate_track
+
+        edition = get_object_or_404(Edition, pk=pk)
+
+        try:
+            participation = Participation.objects.get(user=request.user, edition=edition)
+        except Participation.DoesNotExist:
+            return Response({"detail": "No estás inscrito en esta edición."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not request.user.strava_connected:
+            return Response({"detail": "No tienes Strava conectado."}, status=status.HTTP_400_BAD_REQUEST)
+
+        window_hours = getattr(conf, "STRAVA_ACTIVITY_UPLOAD_WINDOW_HOURS", 24)
+        deadline = tz.make_aware(
+            datetime.datetime.combine(edition.date, datetime.time.max),
+            tz.get_current_timezone(),
+        ) + datetime.timedelta(hours=window_hours)
+        if tz.now() > deadline:
+            return Response(
+                {"detail": f"El plazo para subir desde Strava ({window_hours}h tras la edición) ha expirado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        strava = StravaClient(request.user)
+        t0 = _time.monotonic()
+
+        # 1. Buscar actividades del día (una sola llamada a Strava)
+        try:
+            activities = strava.get_activities_on_date(edition.date)
+        except StravaError as exc:
+            logger.warning("Strava activities error user=%s: %s", request.user.pk, exc)
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        t1 = _time.monotonic()
+        logger.info("[strava-auto] user=%s step=activities t=%.2fs", request.user.pk, t1 - t0)
+
+        if not activities:
+            return Response(
+                {"detail": "No hay actividades Strava de ciclismo en la fecha de la edición."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        best = activities[0]
+
+        # 2. Descargar stream GPS
+        try:
+            track_geometry = strava.get_activity_linestring(best["id"])
+        except StravaError as exc:
+            logger.warning("Strava stream error user=%s activity=%s: %s", request.user.pk, best["id"], exc)
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        t2 = _time.monotonic()
+        logger.info("[strava-auto] user=%s step=stream pts=%d t=%.2fs", request.user.pk, len(track_geometry.coords), t2 - t1)
+
+        # 3. Validar con PostGIS
+        score, is_valid = 0.0, False
+        route_geom = edition.route_geom
+        if route_geom:
+            score, is_valid = validate_track(route_geom, track_geometry)
+        t3 = _time.monotonic()
+        logger.info("[strava-auto] user=%s step=postgis score=%.3f t=%.2fs total=%.2fs", request.user.pk, score, t3 - t2, t3 - t0)
+
+        # 4. Velocidad media en movimiento (km/h) a partir de los metadatos de la actividad
+        moving_time = best.get("moving_time") or 0
+        distance_km = best.get("distance") or 0.0
+        avg_moving_speed = round(distance_km / (moving_time / 3600), 2) if moving_time > 0 else None
+
+        # 5. Guardar Activity con todos los metadatos
+        activity, _ = Activity.objects.update_or_create(
+            participation=participation,
+            defaults={
+                "is_valid": is_valid,
+                "validation_score": score,
+                "source": Activity.SOURCE_STRAVA,
+                "strava_activity_id": best["id"],
+                "elapsed_time_seconds": best.get("elapsed_time"),
+                "average_moving_speed": avg_moving_speed,
+            },
+        )
+
+        if is_valid:
+            recalculate_positions(edition)
+            if edition.status == Edition.STATUS_OPEN:
+                edition.status = Edition.STATUS_PUBLISHED
+                edition.save(update_fields=["status"])
+
+        return Response({
+            "is_valid": is_valid,
+            "validation_score": round(score, 3),
+            "source": Activity.SOURCE_STRAVA,
+            "elapsed_time_seconds": activity.elapsed_time_seconds,
+            "elapsed_formatted": activity.elapsed_formatted,
+            "average_moving_speed": activity.average_moving_speed,
+        })
+
+
 class StravaWebhookAPIView(APIView):
     """
     GET  /strava/webhook/ → verificación de suscripción (hub.challenge)
